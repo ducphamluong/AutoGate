@@ -4,9 +4,8 @@ Version 1.0, June 2025
 Copyright (c) 2025 AutoGate Contributors
 All rights reserved.
 
-================================================================================
-1. DEFINITIONS
-================================================================================
+
+## 1. DEFINITIONS
 
 "Software" means the AutoGate source code, documentation, configuration files,
 Docker images, scripts, and any derivative works based thereon.
@@ -29,9 +28,7 @@ test, and internal evaluation in a non-revenue context.
 
 "Authorized Party" means the copyright holder(s) of this Software.
 
-================================================================================
-2. GRANT OF LICENSE
-================================================================================
+## 2. GRANT OF LICENSE
 
 Subject to the terms of this License, permission is hereby granted to any
 person obtaining a copy of the Software to use, copy, modify, and distribute
@@ -44,9 +41,7 @@ the Software **solely for Educational and Non-Commercial Use**, provided that:
   (c) use remains within the scope of Educational and Non-Commercial Use as
       defined above.
 
-================================================================================
-3. COMMERCIAL USE RESTRICTION
-================================================================================
+## 3. COMMERCIAL USE RESTRICTION
 
 **Commercial Use is expressly prohibited** without prior **written authorization**
 from the Authorized Party.
@@ -63,9 +58,7 @@ Without limiting the foregoing, you may NOT:
 
 To request a commercial license, contact the copyright holder of this repository.
 
-================================================================================
-4. ACCEPTABLE USE
-================================================================================
+## 4. ACCEPTABLE USE
 
 The Software is intended for lawful purposes only, including but not limited to:
 
@@ -78,9 +71,7 @@ The Software is intended for lawful purposes only, including but not limited to:
 You must comply with all applicable laws and regulations, including the laws
 of **Vietnam** and relevant **international** treaties and statutes.
 
-================================================================================
-5. PROHIBITED USE & NO ENDORSEMENT OF MISUSE
-================================================================================
+## 5. PROHIBITED USE & NO ENDORSEMENT OF MISUSE
 
 You may NOT use the Software for any unlawful, harmful, or unauthorized
 purpose, including but not limited to:
@@ -95,9 +86,7 @@ The copyright holders **do not endorse** such misuse and **expressly disclaim
 any responsibility** for actions taken by users that violate law or third-party
 rights.
 
-================================================================================
-6. DISCLAIMER OF WARRANTY
-================================================================================
+## 6. DISCLAIMER OF WARRANTY
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -108,9 +97,7 @@ public proxy providers). Availability, legality, and terms of those services
 are outside the control of the copyright holders. You use such services at your
 own risk and must comply with their respective terms.
 
-================================================================================
-7. LIMITATION OF LIABILITY
-================================================================================
+## 7. LIMITATION OF LIABILITY
 
 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
 COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
@@ -124,26 +111,20 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Users assume **full responsibility** for their conduct and for ensuring that
 their use of the Software is lawful and authorized.
 
-================================================================================
-8. TERMINATION
-================================================================================
+## 8. TERMINATION
 
 This License terminates automatically upon any breach of its terms. Upon
 termination, you must cease all use and destroy all copies of the Software.
 Sections 3, 5, 6, 7, and 9 survive termination.
 
-================================================================================
-9. GOVERNING LAW
-================================================================================
+## 9. GOVERNING LAW
 
 This License shall be interpreted in accordance with the laws of Vietnam,
 without regard to conflict-of-law principles. Users remain independently
 subject to all applicable local, national, and international laws in their
 jurisdiction.
 
-================================================================================
-10. ENTIRE AGREEMENT
-================================================================================
+## 10. ENTIRE AGREEMENT
 
 This License constitutes the entire agreement regarding use of the Software.
 No commercial rights are granted except by separate written agreement with
