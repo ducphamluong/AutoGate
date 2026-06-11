@@ -1,0 +1,565 @@
+
+#firefox - cfmmo
+version: "3"
+
+services:
+    haproxy:
+        build:
+            context: .
+            dockerfile: HaproxyDockerfile
+        image: haproxyimg
+        container_name: haproxy
+        ports:
+            - 2086:10000
+            - 56789:9999
+        volumes:
+           - ./ovpn:/ovpn
+        links:
+            - warp:warp
+            - proxy001:proxy001
+            - ovpn_proxy_00:vpn00
+            - ovpn_proxy_01:vpn01
+            - ovpn_proxy_02:vpn02
+            - ovpn_proxy_03:vpn03
+            - ovpn_proxy_04:vpn04
+            - ovpn_proxy_05:vpn05
+            - ovpn_proxy_06:vpn06
+            - ovpn_proxy_07:vpn07
+            - ovpn_proxy_08:vpn08
+            - ovpn_proxy_09:vpn09
+            - ovpn_proxy_10:vpn10
+            - ovpn_proxy_11:vpn11
+            - ovpn_proxy_12:vpn12
+            - ovpn_proxy_13:vpn13
+            - ovpn_proxy_14:vpn14
+            - ovpn_proxy_15:vpn15
+            - ovpn_proxy_16:vpn16
+            - ovpn_proxy_17:vpn17
+            - ovpn_proxy_18:vpn18
+            - ovpn_proxy_19:vpn19
+
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.100
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+    warp:
+        image: caomingjun/warp
+        restart: always
+        environment:
+            - WARP_SLEEP=2
+            # - WARP_LICENSE_KEY= # optional
+        cap_add:
+            - NET_ADMIN
+        sysctls:
+            - net.ipv6.conf.all.disable_ipv6=0
+            - net.ipv4.conf.all.src_valid_mark=1
+        volumes:
+            - ./data:/var/lib/cloudflare-warp
+
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.101
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+  
+    proxy001:
+        image: bluet/proxybroker2:v2.0.0-alpha6
+        container_name: proxy001
+        hostname: proxy001
+        restart: always
+        cap_add:
+            - NET_ADMIN
+        sysctls:
+            - net.ipv6.conf.all.disable_ipv6=0
+            - net.ipv4.conf.all.src_valid_mark=1
+        command: serve --host 0.0.0.0 --port 8888 --types HTTP HTTPS --lvl High --strict -l 10 --min-queue 100
+        stdin_open: true
+        tty: true
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.131
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+    restarter:
+        image: docker:cli
+        volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
+        command: ["/bin/sh", "-c", "while true; do sleep 180; docker restart proxy001; done"]
+        restart: always
+    ovpn_proxy_00:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.102
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_01:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.103
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_02:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.104
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_03:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.105
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_04:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.106
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_05:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.107
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_06:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.108
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_07:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.109
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_08:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.110
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_09:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.111
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+
+    ovpn_proxy_10:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.112
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_11:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.113
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_12:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.114
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_13:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.115
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_14:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.116
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_15:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.117
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_16:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.118
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_17:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.119
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_18:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.120
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+
+    ovpn_proxy_19:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: testimg
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - /dev/net/tun
+        dns:
+            - 1.1.1.1
+        volumes:
+            - ./ovpn:/ovpn
+        restart: always
+        networks:
+            custom_network:
+                ipv4_address: 172.21.0.121
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "1"
+networks:
+    custom_network:
+        ipam:
+            driver: default
+            config:
+                - subnet: 172.21.0.0/24
+                  gateway: 172.21.0.1
