@@ -30,7 +30,8 @@ COPY --from=builder /psiphon-tunnel-core /usr/local/bin/psiphon
 COPY psiphon/psiphon.config /psiphon/psiphon.config
 COPY psiphon/run.sh /psiphon/run.sh
 COPY psiphon/healthcheck.sh /psiphon/healthcheck.sh
-RUN chmod +x /psiphon/run.sh /psiphon/healthcheck.sh /usr/local/bin/psiphon
+RUN find /psiphon -type f -exec sed -i 's/\r$//' {} + \
+    && chmod +x /psiphon/run.sh /psiphon/healthcheck.sh /usr/local/bin/psiphon
 
 # Tunnel establishment can take a while, so allow a generous start period before
 # the container is considered unhealthy. The check tunnels a real request
