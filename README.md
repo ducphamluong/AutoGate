@@ -134,6 +134,29 @@ The watchdog kills and reconnects OpenVPN + tinyproxy on this interval.
 
 `proxy/vpngate.py` fetches VPNGate CSV data and writes `.ovpn` files to `./ovpn`. It runs every **30 minutes** from `proxy/run.sh`.
 
+### Country filter
+
+Set `COUNTRY_FILTER` to a two-letter country code to run in strict country mode:
+
+```bash
+COUNTRY_FILTER=JP docker compose up -d --build
+```
+
+On Windows with `autogate.bat`:
+
+```bat
+set COUNTRY_FILTER=JP
+autogate.bat restart
+```
+
+When `COUNTRY_FILTER` is set:
+
+- VPNGate profiles are filtered by `CountryShort`.
+- Psiphon receives the same value as `EGRESS_REGION`.
+- HAProxy removes non-country-pinned backends (`warp`, `proxy001`) from rotation.
+
+Use a single country code for strict mode. Leave `COUNTRY_FILTER` empty for the default mixed-country pool.
+
 ### Scale VPN workers
 
 Duplicate or remove `ovpn_proxy_XX` service blocks in `docker-compose.yml` and add matching `server vpnXX` entries in `proxy/haproxy.cfg`.

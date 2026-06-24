@@ -1,4 +1,5 @@
 import base64
+import csv
 import datetime
 import os
 import re
@@ -9,7 +10,7 @@ import urllib.request
 API_URL = "http://www.vpngate.net/api/iphone/"
 OVPN_DIR = "/ovpn"
 TIMEOUT_SECONDS = 30
-CONFIG_PATTERN = re.compile(r"^([^,]{3,}),.+,([a-zA-Z0-9+=]{100,})", flags=re.MULTILINE)
+CONFIG_FIELD = "OpenVPN_ConfigData_Base64"
 
 
 def log(message):
@@ -25,12 +26,36 @@ def download_csv():
         return response.read().decode("utf-8")
 
 
+def country_filter():
+    countries = os.environ.get("COUNTRY_FILTER", "")
+    return {country.strip().upper() for country in countries.split(",") if country.strip()}
+
+
+def csv_rows(csv_text):
+    lines = []
+    for line in csv_text.splitlines():
+        if line.startswith("*") or not line.strip():
+            continue
+        if line.startswith("#"):
+            line = line[1:]
+        lines.append(line)
+    return csv.DictReader(lines)
+
+
 def write_configs(csv, output_dir):
     written = 0
-    for match in CONFIG_PATTERN.finditer(csv):
-        name = safe_name(match.group(1))
+    allowed_countries = country_filter()
+    if allowed_countries:
+        log(f"vpngate - country filter: {','.join(sorted(allowed_countries))}")
+
+    for row in csv_rows(csv):
+        country = row.get("CountryShort", "").upper()
+        if allowed_countries and country not in allowed_countries:
+            continue
+
+        name = safe_name(row.get("HostName", "vpn"))
         try:
-            ovpn_text = base64.b64decode(match.group(2)).decode("utf-8")
+            ovpn_text = base64.b64decode(row.get(CONFIG_FIELD, "")).decode("utf-8")
         except Exception as exc:
             log(f"vpngate - download - skip {name}: {exc}")
             continue

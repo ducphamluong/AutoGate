@@ -9,6 +9,8 @@ services:
             dockerfile: HaproxyDockerfile
         image: haproxyimg
         container_name: haproxy
+        environment:
+            - COUNTRY_FILTER=${COUNTRY_FILTER:-}
         ports:
             - 2086:10000
             - 56789:9999
@@ -81,7 +83,7 @@ services:
         restart: always
         environment:
             # Leave empty for fastest/any region. Set e.g. SG, JP, US to pin egress geo.
-            - EGRESS_REGION=
+            - EGRESS_REGION=${COUNTRY_FILTER:-}
             # Optional: auto-fetch a fresh psiphon config from this URL on start
             # and on each refresh. Empty = always use the bundled standard config.
             # Invalid/unreachable downloads automatically fall back to standard.

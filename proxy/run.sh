@@ -2,10 +2,25 @@
 
 set -u
 
-HAPROXY_CONFIG=/usr/local/etc/haproxy/haproxy.cfg
+HAPROXY_SOURCE_CONFIG=/usr/local/etc/haproxy/haproxy.cfg
+HAPROXY_CONFIG=/tmp/haproxy.cfg
 HAPROXY_PID=
 
+build_haproxy_config() {
+	cp "$HAPROXY_SOURCE_CONFIG" "$HAPROXY_CONFIG"
+
+	if [ -n "${COUNTRY_FILTER:-}" ]; then
+		echo "COUNTRY_FILTER=$COUNTRY_FILTER, disabling non-country backends (warp, proxy001)."
+		sed -i \
+			-e '/^[[:space:]]*server warp /d' \
+			-e '/^[[:space:]]*server proxy001 /d' \
+			"$HAPROXY_CONFIG"
+	fi
+}
+
 start_haproxy() {
+	build_haproxy_config
+
 	while ! haproxy -c -f "$HAPROXY_CONFIG"; do
 		echo "HAProxy config is not ready yet, retrying in 2s..."
 		sleep 2

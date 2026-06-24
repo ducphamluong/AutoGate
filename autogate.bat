@@ -8,12 +8,12 @@ echo   AutoGate Manager  (WSL2 - Ubuntu-24.04)
 echo ============================================
 echo.
 if /I "%ACTION%"=="start" (
-  wsl -d Ubuntu-24.04 -u root -- bash /home/ducph/AutoGate/autogate.sh start
+  wsl -d Ubuntu-24.04 -u root -- env COUNTRY_FILTER="%COUNTRY_FILTER%" bash /home/ducph/AutoGate/autogate.sh start
   if errorlevel 1 goto after_action
   call :keepalive
   goto end
 ) else if /I "%ACTION%"=="restart" (
-  wsl -d Ubuntu-24.04 -u root -- bash /home/ducph/AutoGate/autogate.sh restart
+  wsl -d Ubuntu-24.04 -u root -- env COUNTRY_FILTER="%COUNTRY_FILTER%" bash /home/ducph/AutoGate/autogate.sh restart
   if errorlevel 1 goto after_action
   call :keepalive
   goto end
