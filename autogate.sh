@@ -1,10 +1,24 @@
 #!/bin/bash
 # AutoGate manager - run inside WSL2 Ubuntu-24.04
-# Usage: autogate.sh [start|stop|restart|status|logs [service]]
+# Usage: autogate.sh [COUNTRY] [start|stop|restart|status|logs [service]]
 set -u
 
 DIR="/home/ducph/AutoGate"
 ACTION="${1:-start}"
+EXTRA_ARG="${2:-}"
+
+if [[ "$ACTION" =~ ^[A-Za-z]{2}$ ]]; then
+  export COUNTRY_FILTER="${ACTION^^}"
+  ACTION="${2:-start}"
+  EXTRA_ARG="${3:-}"
+elif [[ "${2:-}" =~ ^[A-Za-z]{2}$ ]]; then
+  export COUNTRY_FILTER="${2^^}"
+  EXTRA_ARG="${3:-}"
+fi
+
+if [ -n "${COUNTRY_FILTER:-}" ]; then
+  export COUNTRY_FILTER="${COUNTRY_FILTER^^}"
+fi
 
 wait_docker() {
   for _ in $(seq 1 40); do
@@ -44,19 +58,23 @@ case "$ACTION" in
   restart)
     compose up -d --build --force-recreate haproxy psiphon001
     compose restart
+    if [ -n "${COUNTRY_FILTER:-}" ]; then
+      echo "=> Country filter  : $COUNTRY_FILTER"
+    fi
     echo "=> Da restart stack."
     ;;
   status)
     compose ps
     ;;
   logs)
-    compose logs --tail=30 "${2:-haproxy}"
+    compose logs --tail=30 "${EXTRA_ARG:-haproxy}"
     ;;
   *)
-    echo "Cach dung: autogate.sh [start|stop|restart|status|logs [service]]"
+    echo "Cach dung: autogate.sh [COUNTRY] [start|stop|restart|status|logs [service]]"
+    echo "  US      - bat stack voi proxy US"
     echo "  start   - bat stack (mac dinh)"
+    echo "  restart US - khoi dong lai voi proxy US"
     echo "  stop    - tat stack"
-    echo "  restart - khoi dong lai"
     echo "  status  - xem trang thai"
     echo "  logs    - xem log (vd: logs ovpn_proxy_00)"
     ;;

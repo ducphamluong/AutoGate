@@ -2,7 +2,25 @@
 chcp 65001 >nul
 setlocal
 set "ACTION=%~1"
+set "COUNTRY_ARG="
+set "EXTRA_ARG=%~2"
 if "%ACTION%"=="" set "ACTION=start"
+echo %ACTION%| findstr /R /I "^[A-Z][A-Z]$" >nul
+if not errorlevel 1 (
+  set "COUNTRY_ARG=%ACTION%"
+  set "ACTION=%~2"
+  set "EXTRA_ARG=%~3"
+  if "%~2"=="" set "ACTION=start"
+) else (
+  if not "%~2"=="" (
+    echo %~2| findstr /R /I "^[A-Z][A-Z]$" >nul
+    if not errorlevel 1 (
+      set "COUNTRY_ARG=%~2"
+      set "EXTRA_ARG=%~3"
+    )
+  )
+)
+if not "%COUNTRY_ARG%"=="" set "COUNTRY_FILTER=%COUNTRY_ARG%"
 echo ============================================
 echo   AutoGate Manager  (WSL2 - Ubuntu-24.04)
 echo ============================================
@@ -18,16 +36,18 @@ if /I "%ACTION%"=="start" (
   call :keepalive
   goto end
 ) else (
-  wsl -d Ubuntu-24.04 -u root -- bash /home/ducph/AutoGate/autogate.sh %*
+  wsl -d Ubuntu-24.04 -u root -- env COUNTRY_FILTER="%COUNTRY_FILTER%" bash /home/ducph/AutoGate/autogate.sh %ACTION% %EXTRA_ARG%
 )
 :after_action
 echo.
 echo --------------------------------------------
 echo  Cach dung khac (go trong cmd/PowerShell):
-echo   autogate.bat            = bat stack
-echo   autogate.bat stop       = tat stack
-echo   autogate.bat restart    = khoi dong lai
-echo   autogate.bat status     = xem trang thai
+echo   autogate.bat              = bat stack
+echo   autogate.bat US           = bat stack voi proxy US
+echo   autogate.bat restart US   = khoi dong lai voi proxy US
+echo   autogate.bat stop         = tat stack
+echo   autogate.bat restart      = khoi dong lai
+echo   autogate.bat status       = xem trang thai
 echo   autogate.bat logs haproxy = xem log
 echo --------------------------------------------
 pause

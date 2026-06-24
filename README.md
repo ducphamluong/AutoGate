@@ -142,11 +142,11 @@ Set `COUNTRY_FILTER` to a two-letter country code to run in strict country mode:
 COUNTRY_FILTER=JP docker compose up -d --build
 ```
 
-On Windows with `autogate.bat`:
+On Windows with `autogate.bat`, pass the country code directly:
 
 ```bat
-set COUNTRY_FILTER=JP
-autogate.bat restart
+autogate.bat US
+autogate.bat restart US
 ```
 
 When `COUNTRY_FILTER` is set:
