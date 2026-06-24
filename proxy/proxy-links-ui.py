@@ -29,11 +29,17 @@ def fetch_haproxy_stats():
     except Exception:
         return {}
 
-    lines = [line[1:] if line.startswith("#") else line for line in text.splitlines()]
+    lines = [line.lstrip("# ") if line.startswith("#") else line for line in text.splitlines()]
     rows = {}
     for row in csv.DictReader(lines):
-        if row.get("pxname") == "vpn" and row.get("svname"):
-            rows[row["svname"]] = row.get("status") or "UNKNOWN"
+        pxname = row.get("pxname", "")
+        svname = row.get("svname", "")
+        if not svname or svname in {"FRONTEND", "BACKEND"}:
+            continue
+        if pxname == f"worker_{svname}":
+            rows[svname] = row.get("status") or "UNKNOWN"
+        elif pxname == "vpn" and svname not in rows:
+            rows[svname] = row.get("status") or "UNKNOWN"
     return rows
 
 
