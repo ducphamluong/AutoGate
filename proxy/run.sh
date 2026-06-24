@@ -6,6 +6,31 @@ HAPROXY_SOURCE_CONFIG=/usr/local/etc/haproxy/haproxy.cfg
 HAPROXY_CONFIG=/tmp/haproxy.cfg
 HAPROXY_PID=
 PROXY_LINKS_UI_PID=
+PROXY_WORKER_COUNT="${PROXY_WORKER_COUNT:-10}"
+
+if ! echo "$PROXY_WORKER_COUNT" | grep -Eq '^[0-9]+$' || [ "$PROXY_WORKER_COUNT" -lt 1 ] || [ "$PROXY_WORKER_COUNT" -gt 20 ]; then
+	echo "Invalid PROXY_WORKER_COUNT=$PROXY_WORKER_COUNT, using 10."
+	PROXY_WORKER_COUNT=10
+fi
+
+append_worker_frontends() {
+	for index in $(seq 0 $((PROXY_WORKER_COUNT - 1))); do
+		port=$((56800 + index))
+		name=$(printf "vpn%02d" "$index")
+		cat >> "$HAPROXY_CONFIG" <<EOF
+
+frontend worker_$name
+  mode http
+  bind *:$port
+  default_backend worker_$name
+
+backend worker_$name
+  mode http
+  default-server resolvers docker init-addr libc,none inter 5s fall 2 rise 1
+  server $name $name:8080 check
+EOF
+	done
+}
 
 build_haproxy_config() {
 	cp "$HAPROXY_SOURCE_CONFIG" "$HAPROXY_CONFIG"
@@ -17,6 +42,8 @@ build_haproxy_config() {
 			-e '/^[[:space:]]*server proxy001 /d' \
 			"$HAPROXY_CONFIG"
 	fi
+
+	append_worker_frontends
 }
 
 start_haproxy() {

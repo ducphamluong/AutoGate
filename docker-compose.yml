@@ -9,11 +9,13 @@ services:
         image: haproxyimg
         container_name: haproxy
         environment:
-            - COUNTRY_FILTER=${COUNTRY_FILTER:-}
+            COUNTRY_FILTER: ${COUNTRY_FILTER:-}
+            PROXY_WORKER_COUNT: ${PROXY_WORKER_COUNT:-10}
         ports:
             - 127.0.0.1:2086:10000
             - 127.0.0.1:56789:9999
             - 127.0.0.1:2087:2087
+            - 127.0.0.1:56800-56819:56800-56819
         volumes:
            - ./ovpn:/ovpn
         links:
@@ -143,8 +145,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56800:8080
         restart: always
         networks:
             custom_network:
@@ -168,8 +168,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56801:8080
         restart: always
         networks:
             custom_network:
@@ -193,8 +191,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56802:8080
         restart: always
         networks:
             custom_network:
@@ -218,8 +214,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56803:8080
         restart: always
         networks:
             custom_network:
@@ -243,8 +237,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56804:8080
         restart: always
         networks:
             custom_network:
@@ -268,8 +260,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56805:8080
         restart: always
         networks:
             custom_network:
@@ -293,8 +283,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56806:8080
         restart: always
         networks:
             custom_network:
@@ -318,8 +306,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56807:8080
         restart: always
         networks:
             custom_network:
@@ -343,8 +329,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56808:8080
         restart: always
         networks:
             custom_network:
@@ -368,8 +352,6 @@ services:
             - 1.1.1.1
         volumes:
             - ./ovpn:/ovpn
-        ports:
-            - 127.0.0.1:56809:8080
         restart: always
         networks:
             custom_network:

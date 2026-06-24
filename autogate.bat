@@ -1,42 +1,32 @@
 @echo off
 chcp 65001 >nul
 setlocal
-set "ACTION=%~1"
-set "COUNTRY_ARG="
-set "EXTRA_ARG=%~2"
-if "%ACTION%"=="" set "ACTION=start"
-echo %ACTION%| findstr /R /I "^[A-Z][A-Z]$" >nul
-if not errorlevel 1 (
-  set "COUNTRY_ARG=%ACTION%"
-  set "ACTION=%~2"
-  set "EXTRA_ARG=%~3"
-  if "%~2"=="" set "ACTION=start"
-) else (
-  if not "%~2"=="" (
-    echo %~2| findstr /R /I "^[A-Z][A-Z]$" >nul
-    if not errorlevel 1 (
-      set "COUNTRY_ARG=%~2"
-      set "EXTRA_ARG=%~3"
-    )
-  )
+set "RUN_KEEPALIVE=1"
+for %%A in (%*) do (
+  if /I "%%~A"=="stop" set "RUN_KEEPALIVE=0"
+  if /I "%%~A"=="status" set "RUN_KEEPALIVE=0"
+  if /I "%%~A"=="logs" set "RUN_KEEPALIVE=0"
 )
-if not "%COUNTRY_ARG%"=="" set "COUNTRY_FILTER=%COUNTRY_ARG%"
+
+for /f "usebackq delims=" %%I in (`wsl -d Ubuntu-24.04 -u root -- wslpath -a "%~dp0."`) do set "WSL_DIR=%%I"
+if "%WSL_DIR%"=="" (
+  echo Khong lay duoc WSL path tu thu muc hien tai.
+  goto after_action
+)
+
 echo ============================================
 echo   AutoGate Manager  (WSL2 - Ubuntu-24.04)
 echo ============================================
 echo.
-if /I "%ACTION%"=="start" (
-  wsl -d Ubuntu-24.04 -u root -- env COUNTRY_FILTER="%COUNTRY_FILTER%" bash /home/ducph/AutoGate/autogate.sh start
-  if errorlevel 1 goto after_action
+echo Workdir WSL: %WSL_DIR%
+echo.
+
+wsl -d Ubuntu-24.04 -u root -- env AUTOGATE_DIR="%WSL_DIR%" bash "%WSL_DIR%/autogate.sh" %*
+if errorlevel 1 goto after_action
+
+if "%RUN_KEEPALIVE%"=="1" (
   call :keepalive
   goto end
-) else if /I "%ACTION%"=="restart" (
-  wsl -d Ubuntu-24.04 -u root -- env COUNTRY_FILTER="%COUNTRY_FILTER%" bash /home/ducph/AutoGate/autogate.sh restart
-  if errorlevel 1 goto after_action
-  call :keepalive
-  goto end
-) else (
-  wsl -d Ubuntu-24.04 -u root -- env COUNTRY_FILTER="%COUNTRY_FILTER%" bash /home/ducph/AutoGate/autogate.sh %ACTION% %EXTRA_ARG%
 )
 :after_action
 echo.
@@ -44,7 +34,10 @@ echo --------------------------------------------
 echo  Cach dung khac (go trong cmd/PowerShell):
 echo   autogate.bat              = bat stack
 echo   autogate.bat US           = bat stack voi proxy US
+echo   autogate.bat US 10        = bat proxy US voi 10 port 56800-56809
+echo   autogate.bat US 20        = bat proxy US voi 20 port 56800-56819
 echo   autogate.bat restart US   = khoi dong lai voi proxy US
+echo   autogate.bat restart US 5 = khoi dong lai voi 5 port 56800-56804
 echo   autogate.bat stop         = tat stack
 echo   autogate.bat restart      = khoi dong lai
 echo   autogate.bat status       = xem trang thai
@@ -52,7 +45,7 @@ echo   autogate.bat logs haproxy = xem log
 echo.
 echo   Proxy xoay vong : http://localhost:56789
 echo   Proxy list UI   : http://localhost:2087
-echo   Worker proxies  : http://127.0.0.1:56800 ... http://127.0.0.1:56809
+echo   Worker proxies  : bat dau tu http://127.0.0.1:56800 theo so port da nhap
 echo --------------------------------------------
 pause
 :end

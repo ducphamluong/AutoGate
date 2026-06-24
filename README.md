@@ -124,7 +124,7 @@ Trang proxy list UI chạy trong container `haproxy` và đọc HAProxy stats n�
 | `56789` | `haproxy:9999` | Rotating HTTP proxy, bind local-only trên `127.0.0.1` |
 | `2086` | `haproxy:10000` | HAProxy stats UI, bind local-only trên `127.0.0.1` |
 | `2087` | `haproxy:2087` | Proxy list UI để copy nhanh các proxy URL, bind local-only trên `127.0.0.1` |
-| `56800-56809` | `ovpn_proxy_00..09:8080` | Dedicated worker proxies, bind local-only trên `127.0.0.1` |
+| `56800-56819` | `haproxy:56800-56819` | Dedicated worker proxies qua HAProxy, bind local-only trên `127.0.0.1` |
 
 Internal services use the `172.21.0.0/24` custom network defined in `docker-compose.yml`.
 
@@ -135,7 +135,23 @@ curl -x http://127.0.0.1:56800 http://ifconfig.me
 curl -x http://127.0.0.1:56809 http://ifconfig.me
 ```
 
-Mỗi cổng `56800-56809` giữ nguyên URL nhưng worker phía sau vẫn tự xoay VPN theo `ROTATING_DELAY`.
+Mỗi cổng worker giữ nguyên URL nhưng worker phía sau vẫn tự xoay VPN theo `ROTATING_DELAY`.
+
+Số lượng worker port có thể chọn khi chạy script:
+
+```bat
+autogate.bat US 5
+autogate.bat US 10
+autogate.bat US 20
+```
+
+Quy ước port:
+
+```text
+5 port  = 56800-56804
+10 port = 56800-56809
+20 port = 56800-56819
+```
 
 ---
 
@@ -168,6 +184,8 @@ On Windows with `autogate.bat`, pass the country code directly:
 ```bat
 autogate.bat US
 autogate.bat restart US
+autogate.bat US 10
+autogate.bat restart US 20
 ```
 
 When `COUNTRY_FILTER` is set:
@@ -182,7 +200,7 @@ Use a single country code for strict mode. Leave `COUNTRY_FILTER` empty for the 
 
 Duplicate or remove `ovpn_proxy_XX` service blocks in `docker-compose.yml` and add matching `server vpnXX` entries in `proxy/haproxy.cfg`.
 
-Nếu mở rộng dedicated worker ports, thêm port mapping theo cùng quy ước `56800 + worker_index` và cập nhật `PROXY_WORKER_COUNT` cho service `haproxy` nếu cần UI hiển thị nhiều hơn 10 worker.
+`autogate.sh` truyền `PROXY_WORKER_COUNT` cho HAProxy. Khi container `haproxy` khởi động, `proxy/run.sh` tự sinh frontend `56800 + worker_index` cho từng worker được chọn. Repo hiện có sẵn `ovpn_proxy_00` đến `ovpn_proxy_19`, nên số lượng hợp lệ là `1..20`.
 
 ### Cloudflare WARP
 
