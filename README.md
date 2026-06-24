@@ -16,6 +16,7 @@ It is intended for **authorized security research, penetration testing, security
 - **Connection rotation** — Watchdog reconnects VPN and proxy per container on a configurable interval (`ROTATING_DELAY`)
 - **Multiple egress paths** — Combine VPN, WARP, and scraped public proxies for diverse IP/geo testing
 - **Stats dashboard** — HAProxy stats UI for backend health monitoring
+- **Copyable proxy list UI** — Mở trang `http://127.0.0.1:2087` để xem/copy proxy xoay vòng và các proxy worker riêng
 - **Containerized** — Single `docker-compose` stack, reproducible deployments
 
 ---
@@ -38,6 +39,7 @@ It is intended for **authorized security research, penetration testing, security
                     │           HAProxy (haproxy)          │
                     │  :9999  rotating HTTP proxy (frontend)│
                     │  :10000 stats UI                     │
+                    │  :2087  proxy list UI                │
                     └──────────────┬──────────────────────┘
                                    │ round-robin
     ┌────────────────────┬────────────┼────────────┬─────────────────────┐
@@ -64,6 +66,8 @@ It is intended for **authorized security research, penetration testing, security
 | `psiphon001` | Psiphon ConsoleClient — circumvention tunnel exposing a local HTTP proxy (`:8080`) / SOCKS proxy (`:1080`) |
 | `ovpn_proxy_00` … `ovpn_proxy_19` | OpenVPN client + tinyproxy; rotates VPN endpoint on watchdog schedule |
 | `restarter` | Periodically restarts `proxy001` to refresh the proxy pool |
+
+Trang proxy list UI chạy trong container `haproxy` và đọc HAProxy stats nội bộ để hiển thị trạng thái `UP` / `DOWN` / `UNKNOWN` cho các cổng worker.
 
 ---
 
@@ -105,16 +109,33 @@ It is intended for **authorized security research, penetration testing, security
    curl -x http://127.0.0.1:56789 http://ifconfig.me
    ```
 
+6. Mở danh sách proxy có nút copy:
+
+   ```text
+   http://127.0.0.1:2087
+   ```
+
 ---
 
 ## Ports (default host mapping)
 
 | Host port | Container | Description |
 |-----------|-----------|-------------|
-| `56789` | `haproxy:9999` | Rotating HTTP proxy (use with `-x http://host:56789`) |
-| `2086` | `haproxy:10000` | HAProxy stats UI (`http://host:2086/`) |
+| `56789` | `haproxy:9999` | Rotating HTTP proxy, bind local-only trên `127.0.0.1` |
+| `2086` | `haproxy:10000` | HAProxy stats UI, bind local-only trên `127.0.0.1` |
+| `2087` | `haproxy:2087` | Proxy list UI để copy nhanh các proxy URL, bind local-only trên `127.0.0.1` |
+| `56800-56809` | `ovpn_proxy_00..09:8080` | Dedicated worker proxies, bind local-only trên `127.0.0.1` |
 
 Internal services use the `172.21.0.0/24` custom network defined in `docker-compose.yml`.
+
+Ví dụ dùng worker proxy riêng:
+
+```bash
+curl -x http://127.0.0.1:56800 http://ifconfig.me
+curl -x http://127.0.0.1:56809 http://ifconfig.me
+```
+
+Mỗi cổng `56800-56809` giữ nguyên URL nhưng worker phía sau vẫn tự xoay VPN theo `ROTATING_DELAY`.
 
 ---
 
@@ -160,6 +181,8 @@ Use a single country code for strict mode. Leave `COUNTRY_FILTER` empty for the 
 ### Scale VPN workers
 
 Duplicate or remove `ovpn_proxy_XX` service blocks in `docker-compose.yml` and add matching `server vpnXX` entries in `proxy/haproxy.cfg`.
+
+Nếu mở rộng dedicated worker ports, thêm port mapping theo cùng quy ước `56800 + worker_index` và cập nhật `PROXY_WORKER_COUNT` cho service `haproxy` nếu cần UI hiển thị nhiều hơn 10 worker.
 
 ### Cloudflare WARP
 

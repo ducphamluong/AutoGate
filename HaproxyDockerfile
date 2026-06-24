@@ -1,5 +1,5 @@
 FROM haproxy:2.7.6-alpine
-EXPOSE 10000 9999
+EXPOSE 10000 9999 2087
 
 USER root
 
@@ -8,7 +8,9 @@ RUN apk update \
 
 ADD proxy/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
 ADD proxy/vpngate.py /proxy/vpngate.py
+ADD proxy/proxy-links-ui.py /proxy/proxy-links-ui.py
+ADD proxy/proxy-links-ui.html /proxy/proxy-links-ui.html
 ADD proxy/run.sh /proxy/run.sh
-RUN chmod +x /proxy/run.sh
+RUN chmod +x /proxy/run.sh /proxy/proxy-links-ui.py
 
-CMD /proxy/run.sh
+CMD ["/proxy/run.sh"]

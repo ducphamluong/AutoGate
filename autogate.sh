@@ -48,7 +48,10 @@ case "$ACTION" in
     fi
     echo "=> Proxy xoay vong: http://localhost:56789"
     echo "=> Stats UI       : http://localhost:2086"
+    echo "=> Proxy list UI  : http://localhost:2087"
+    echo "=> Worker proxies : http://127.0.0.1:56800 ... http://127.0.0.1:56809"
     echo "=> Test nhanh     : curl -x http://localhost:56789 http://ifconfig.me/ip"
+    echo "                    curl -x http://127.0.0.1:56800 http://ifconfig.me/ip"
     echo "   (worker VPN can ~60s de ket noi, watchdog tu heal)"
     ;;
   stop)
@@ -77,5 +80,6 @@ case "$ACTION" in
     echo "  stop    - tat stack"
     echo "  status  - xem trang thai"
     echo "  logs    - xem log (vd: logs ovpn_proxy_00)"
+    echo "  Proxy UI: http://localhost:2087 de copy proxy list"
     ;;
 esac

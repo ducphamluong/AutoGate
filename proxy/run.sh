@@ -5,6 +5,7 @@ set -u
 HAPROXY_SOURCE_CONFIG=/usr/local/etc/haproxy/haproxy.cfg
 HAPROXY_CONFIG=/tmp/haproxy.cfg
 HAPROXY_PID=
+PROXY_LINKS_UI_PID=
 
 build_haproxy_config() {
 	cp "$HAPROXY_SOURCE_CONFIG" "$HAPROXY_CONFIG"
@@ -38,13 +39,28 @@ ensure_haproxy() {
 	fi
 }
 
+start_proxy_links_ui() {
+	echo "Starting proxy links UI..."
+	python3 /proxy/proxy-links-ui.py &
+	PROXY_LINKS_UI_PID=$!
+}
+
+ensure_proxy_links_ui() {
+	if [ -z "${PROXY_LINKS_UI_PID:-}" ] || ! kill -0 "$PROXY_LINKS_UI_PID" 2>/dev/null; then
+		echo "Proxy links UI is not running, starting it..."
+		start_proxy_links_ui || true
+	fi
+}
+
 start_haproxy
+start_proxy_links_ui || true
 
 while :; do
 	python3 /proxy/vpngate.py || echo "VPNGate refresh failed; keeping existing ovpn files."
 
 	for _ in $(seq 1 1800); do
 		ensure_haproxy
+		ensure_proxy_links_ui
 		sleep 1
 	done
 done

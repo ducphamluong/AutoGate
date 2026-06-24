@@ -1,7 +1,7 @@
 ---
 title: "Kế hoạch thêm dedicated proxy ports và web UI copy URL"
 description: "Giữ rotating proxy 56789, publish 10 worker ports 56800-56809 và thêm web UI nhẹ tại 127.0.0.1:2087."
-status: pending
+status: completed
 priority: P2
 effort: 4h
 branch: main

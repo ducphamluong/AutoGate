@@ -49,6 +49,10 @@ echo   autogate.bat stop         = tat stack
 echo   autogate.bat restart      = khoi dong lai
 echo   autogate.bat status       = xem trang thai
 echo   autogate.bat logs haproxy = xem log
+echo.
+echo   Proxy xoay vong : http://localhost:56789
+echo   Proxy list UI   : http://localhost:2087
+echo   Worker proxies  : http://127.0.0.1:56800 ... http://127.0.0.1:56809
 echo --------------------------------------------
 pause
 :end
