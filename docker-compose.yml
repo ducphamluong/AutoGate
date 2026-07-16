@@ -11,11 +11,24 @@ services:
         environment:
             COUNTRY_FILTER: ${COUNTRY_FILTER:-}
             PROXY_WORKER_COUNT: ${PROXY_WORKER_COUNT:-10}
+            EGRESS_MODE: ${EGRESS_MODE:-all}
+            OVPN_SOURCES: ${OVPN_SOURCES:-vpngate,ipspeed}
+            MAX_OVPN_CONFIGS: ${MAX_OVPN_CONFIGS:-80}
+            OVPN_REFRESH_SECONDS: ${OVPN_REFRESH_SECONDS:-1800}
+            OVPN_DEFAULT_USER: ${OVPN_DEFAULT_USER:-vpn}
+            OVPN_DEFAULT_PASS: ${OVPN_DEFAULT_PASS:-vpn}
+            ENABLE_WARP: ${ENABLE_WARP:-1}
+            ENABLE_PROXYBROKER: ${ENABLE_PROXYBROKER:-1}
+            ENABLE_PSIPHON: ${ENABLE_PSIPHON:-1}
+            ENABLE_OVPN: ${ENABLE_OVPN:-1}
+            IPS_SPEED_MAX: ${IPS_SPEED_MAX:-40}
+            OPENPROXYLIST_MAX: ${OPENPROXYLIST_MAX:-30}
+            PUBLICVPNLIST_MAX_PER_COUNTRY: ${PUBLICVPNLIST_MAX_PER_COUNTRY:-10}
         ports:
-            - 127.0.0.1:2086:10000
-            - 127.0.0.1:56789:9999
-            - 127.0.0.1:2087:2087
-            - 127.0.0.1:56800-56819:56800-56819
+            - 2086:10000
+            - 56789:9999
+            - 2087:2087
+            - 56800-56819:56800-56819
         volumes:
            - ./ovpn:/ovpn
         links:
@@ -84,8 +97,8 @@ services:
         hostname: psiphon001
         restart: always
         environment:
-            # Leave empty for fastest/any region. Set e.g. SG, JP, US to pin egress geo.
-            - EGRESS_REGION=${COUNTRY_FILTER:-}
+            # Single ISO2 region. Multi-country filters use first code via PSIPHON_EGRESS_REGION.
+            - EGRESS_REGION=${PSIPHON_EGRESS_REGION:-}
             # Optional: auto-fetch a fresh psiphon config from this URL on start
             # and on each refresh. Empty = always use the bundled standard config.
             # Invalid/unreachable downloads automatically fall back to standard.

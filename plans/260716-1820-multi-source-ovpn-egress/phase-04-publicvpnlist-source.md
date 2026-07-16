@@ -1,6 +1,6 @@
 ---
 title: "Phase 4 — PublicVPNList source (capped best-effort)"
-status: pending
+status: completed
 effort: 3h
 priority: P2
 ---

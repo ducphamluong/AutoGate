@@ -12,7 +12,9 @@ It is intended for **authorized security research, penetration testing, security
 
 - **Rotating proxy pool** — HAProxy round-robin across 20+ OpenVPN-backed tinyproxy instances, WARP, Psiphon, and ProxyBroker2
 - **Psiphon egress** — Censorship-circumvention tunnel exposing a local HTTP/SOCKS proxy as an additional egress path
-- **Automatic VPN config refresh** — Downloads OpenVPN profiles from [VPNGate](http://www.vpngate.net/) on a schedule
+- **Multi-source OpenVPN refresh** — Pulls profiles from VPNGate + IPSpeed (optional OpenProxyList / PublicVPNList)
+- **EGRESS_MODE profiles** — Choose which backends HAProxy rotates (`all`, `ovpn`, `ovpn+psiphon`, `ovpn+warp`, `custom`)
+- **Multi-country locale filter** — `COUNTRY_FILTER=US,JP` filters OpenVPN pool only (ISO2)
 - **Connection rotation** — Watchdog reconnects VPN and proxy per container on a configurable interval (`ROTATING_DELAY`)
 - **Multiple egress paths** — Combine VPN, WARP, and scraped public proxies for diverse IP/geo testing
 - **Stats dashboard** — HAProxy stats UI for backend health monitoring
@@ -52,8 +54,8 @@ It is intended for **authorized security research, penetration testing, security
                                                                 │ :8080 each   │
                                                                 └──────┬───────┘
                                                                        │
-                                vpngate.py (master) ──► /ovpn/*.ovpn ◄─┘
-                                (refreshes configs every 30 min)
+                         ovpn_refresh.py (master) ──► /ovpn/*.ovpn ◄─┘
+                         (multi-source; default every 30 min)
 ```
 
 ### Components
@@ -141,8 +143,8 @@ Số lượng worker port có thể chọn khi chạy script:
 
 ```bat
 autogate.bat US 5
-autogate.bat US 10
-autogate.bat US 20
+autogate.bat US,JP 10 ovpn
+autogate.bat US 20 all
 ```
 
 Quy ước port:
@@ -153,9 +155,17 @@ Quy ước port:
 20 port = 56800-56819
 ```
 
+CLI grammar:
+
+```text
+autogate.bat [start|restart|stop|status|logs] [COUNTRIES] [PORTS] [EGRESS_MODE]
+```
+
 ---
 
 ## Configuration
+
+See also [`.env.example`](.env.example) for a full variable list.
 
 ### VPN rotation interval
 
@@ -167,34 +177,60 @@ ENV ROTATING_DELAY=60
 
 The watchdog kills and reconnects OpenVPN + tinyproxy on this interval.
 
-### VPN config refresh
+### OpenVPN multi-source refresh
 
-`proxy/vpngate.py` fetches VPNGate CSV data and writes `.ovpn` files to `./ovpn`. It runs every **30 minutes** from `proxy/run.sh`.
+`proxy/ovpn_refresh.py` (legacy entry: `proxy/vpngate.py`) merges configs from enabled sources into `./ovpn`. Interval: `OVPN_REFRESH_SECONDS` (default **1800**).
 
-### Country filter
+| `OVPN_SOURCES` key | Status | Notes |
+|--------------------|--------|-------|
+| `vpngate` | default | CSV API, reliable backbone |
+| `ipspeed` | default | HTML + direct `.ovpn` URLs |
+| `openproxylist` | optional | Download-by-id works; **list needs reCAPTCHA** — set `OPENPROXYLIST_IDS` or skip |
+| `publicvpnlist` | optional | **No stable HTTP `.ovpn`** (interactive temporary links) — skip log only |
 
-Set `COUNTRY_FILTER` to a two-letter country code to run in strict country mode:
+Other knobs: `MAX_OVPN_CONFIGS` (default 80), `OVPN_DEFAULT_USER` / `OVPN_DEFAULT_PASS` (default `vpn`/`vpn`) for SoftEther-style `auth-user-pass`.
+
+> **Trust model:** free public VPN endpoints are untrusted and ephemeral. Use only for authorized testing; prefer your own infrastructure for sensitive work.
+
+### EGRESS_MODE (HAProxy backends)
+
+**Migration:** `COUNTRY_FILTER` no longer auto-removes `warp` / `proxy001`. Use `EGRESS_MODE` instead.
+
+| Mode | Backends kept |
+|------|----------------|
+| `all` (default) | warp + proxy001 + psiphon001 + vpn* |
+| `ovpn` | vpn* only |
+| `ovpn+psiphon` | vpn* + psiphon001 |
+| `ovpn+warp` | vpn* + warp |
+| `custom` | `ENABLE_WARP` / `ENABLE_PROXYBROKER` / `ENABLE_PSIPHON` / `ENABLE_OVPN` |
+
+```bat
+autogate.bat US,JP 10 ovpn
+```
+
+### Country filter (locale only)
+
+Set `COUNTRY_FILTER` to one or more ISO2 codes (comma-separated). Applies to **OpenVPN pool only**.
 
 ```bash
 COUNTRY_FILTER=JP docker compose up -d --build
+# or multi:
+COUNTRY_FILTER=US,JP EGRESS_MODE=ovpn docker compose up -d --build
 ```
 
-On Windows with `autogate.bat`, pass the country code directly:
+On Windows:
 
 ```bat
 autogate.bat US
-autogate.bat restart US
-autogate.bat US 10
-autogate.bat restart US 20
+autogate.bat US,JP 10 ovpn
+autogate.bat restart KR 5 all
 ```
 
 When `COUNTRY_FILTER` is set:
 
-- VPNGate profiles are filtered by `CountryShort`.
-- Psiphon receives the same value as `EGRESS_REGION`.
-- HAProxy removes non-country-pinned backends (`warp`, `proxy001`) from rotation.
-
-Use a single country code for strict mode. Leave `COUNTRY_FILTER` empty for the default mixed-country pool.
+- All enabled OVPN sources are filtered to those ISO2 codes (names normalized where needed).
+- Psiphon gets the **first** code as `EGRESS_REGION` (`PSIPHON_EGRESS_REGION`).
+- HAProxy backends are **not** changed by the filter alone — set `EGRESS_MODE`.
 
 ### Scale VPN workers
 
@@ -248,8 +284,10 @@ AutoGate/
 ├── PsiphonDockerfile       # Psiphon ConsoleClient build + runtime image
 ├── proxy/
 │   ├── haproxy.cfg         # Load balancer config
-│   ├── vpngate.py          # VPNGate OpenVPN config downloader
-│   └── run.sh              # HAProxy + periodic vpngate refresh
+│   ├── ovpn_refresh.py     # Multi-source OpenVPN refresh orchestrator
+│   ├── ovpn_sources/       # Source adapters (vpngate, ipspeed, …)
+│   ├── vpngate.py          # Thin legacy wrapper → ovpn_refresh
+│   └── run.sh              # HAProxy + EGRESS_MODE + periodic refresh
 ├── psiphon/
 │   ├── psiphon.config      # Bundled standard Psiphon config (ports, server list)
 │   ├── run.sh              # Entrypoint: build/validate config + auto-update + launch

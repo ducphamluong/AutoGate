@@ -6,6 +6,9 @@ for %%A in (%*) do (
   if /I "%%~A"=="stop" set "RUN_KEEPALIVE=0"
   if /I "%%~A"=="status" set "RUN_KEEPALIVE=0"
   if /I "%%~A"=="logs" set "RUN_KEEPALIVE=0"
+  if /I "%%~A"=="help" set "RUN_KEEPALIVE=0"
+  if /I "%%~A"=="-h" set "RUN_KEEPALIVE=0"
+  if /I "%%~A"=="--help" set "RUN_KEEPALIVE=0"
 )
 
 for /f "usebackq delims=" %%I in (`wsl -d Ubuntu-24.04 -u root -- wslpath -a "%~dp0."`) do set "WSL_DIR=%%I"
@@ -31,21 +34,20 @@ if "%RUN_KEEPALIVE%"=="1" (
 :after_action
 echo.
 echo --------------------------------------------
-echo  Cach dung khac (go trong cmd/PowerShell):
-echo   autogate.bat              = bat stack
-echo   autogate.bat US           = bat stack voi proxy US
-echo   autogate.bat US 10        = bat proxy US voi 10 port 56800-56809
-echo   autogate.bat US 20        = bat proxy US voi 20 port 56800-56819
-echo   autogate.bat restart US   = khoi dong lai voi proxy US
-echo   autogate.bat restart US 5 = khoi dong lai voi 5 port 56800-56804
-echo   autogate.bat stop         = tat stack
-echo   autogate.bat restart      = khoi dong lai
-echo   autogate.bat status       = xem trang thai
-echo   autogate.bat logs haproxy = xem log
+echo  Cach dung (cmd/PowerShell):
+echo   autogate.bat                  = bat stack (mode all)
+echo   autogate.bat US,JP 10 ovpn    = multi-country, 10 port, chi OpenVPN
+echo   autogate.bat US 10            = filter US, full egress
+echo   autogate.bat restart KR 5 all = restart 5 workers mode all
+echo   autogate.bat stop | status | logs haproxy
+echo.
+echo  EGRESS_MODE: all | ovpn | ovpn+psiphon | ovpn+warp | custom
+echo  COUNTRY_FILTER chi loc .ovpn — khong con tu dong tat warp.
+echo  Muon chi OpenVPN: them arg ovpn
 echo.
 echo   Proxy xoay vong : http://localhost:56789
 echo   Proxy list UI   : http://localhost:2087
-echo   Worker proxies  : bat dau tu http://127.0.0.1:56800 theo so port da nhap
+echo   Worker proxies  : bat dau tu http://127.0.0.1:56800
 echo --------------------------------------------
 pause
 :end

@@ -1,6 +1,6 @@
 ---
 title: "Phase 5 — Docs, CLI polish, smoke validation"
-status: pending
+status: completed
 effort: 2h
 priority: P2
 ---

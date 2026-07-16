@@ -1,6 +1,6 @@
 ---
 title: "Phase 3 — OpenProxyList OpenVPN source"
-status: pending
+status: completed
 effort: 3h
 priority: P2
 ---

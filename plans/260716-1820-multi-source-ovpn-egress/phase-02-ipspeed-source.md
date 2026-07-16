@@ -1,6 +1,6 @@
 ---
 title: "Phase 2 — IPSpeed OpenVPN source"
-status: pending
+status: completed
 effort: 2h
 priority: P1
 ---

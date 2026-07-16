@@ -1,6 +1,6 @@
 ---
 title: "Phase 1 — Framework sources + EGRESS_MODE + multi-country + auth"
-status: pending
+status: completed
 effort: 4h
 priority: P1
 ---

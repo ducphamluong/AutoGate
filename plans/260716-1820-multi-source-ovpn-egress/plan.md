@@ -1,7 +1,7 @@
 ---
 title: "Multi-source OpenVPN + EGRESS_MODE + multi-country locale"
 description: "Adapter nhiều nguồn .ovpn, profile egress linh hoạt, filter ISO2 multi-country; scrape verify bằng Chrome khi cần."
-status: pending
+status: completed
 priority: P1
 effort: 14h
 branch: main
@@ -48,11 +48,11 @@ Mở rộng AutoGate: fetch OpenVPN từ nhiều nguồn (VPNGate, IPSpeed, Open
 
 | # | Phase | Status | Effort | Link |
 |---|-------|--------|--------|------|
-| 1 | Framework + EGRESS_MODE + multi-country + auth | pending | 4h | [phase-01](./phase-01-framework-egress-locale.md) |
-| 2 | IPSpeed source adapter | pending | 2h | [phase-02-ipspeed-source.md](./phase-02-ipspeed-source.md) |
-| 3 | OpenProxyList source adapter | pending | 3h | [phase-03-openproxylist-source.md](./phase-03-openproxylist-source.md) |
-| 4 | PublicVPNList source adapter (capped) | pending | 3h | [phase-04-publicvpnlist-source.md](./phase-04-publicvpnlist-source.md) |
-| 5 | Docs, CLI polish, smoke validation | pending | 2h | [phase-05-docs-smoke.md](./phase-05-docs-smoke.md) |
+| 1 | Framework + EGRESS_MODE + multi-country + auth | completed | 4h | [phase-01](./phase-01-framework-egress-locale.md) |
+| 2 | IPSpeed source adapter | completed | 2h | [phase-02-ipspeed-source.md](./phase-02-ipspeed-source.md) |
+| 3 | OpenProxyList source adapter | completed | 3h | [phase-03-openproxylist-source.md](./phase-03-openproxylist-source.md) |
+| 4 | PublicVPNList source adapter (capped) | completed | 3h | [phase-04-publicvpnlist-source.md](./phase-04-publicvpnlist-source.md) |
+| 5 | Docs, CLI polish, smoke validation | completed | 2h | [phase-05-docs-smoke.md](./phase-05-docs-smoke.md) |
 
 ## Dependencies
 

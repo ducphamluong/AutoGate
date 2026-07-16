@@ -7,10 +7,12 @@ RUN apk update \
     && apk --update add python3 py3-pip
 
 ADD proxy/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
+ADD proxy/ovpn_refresh.py /proxy/ovpn_refresh.py
 ADD proxy/vpngate.py /proxy/vpngate.py
+ADD proxy/ovpn_sources /proxy/ovpn_sources
 ADD proxy/proxy-links-ui.py /proxy/proxy-links-ui.py
 ADD proxy/proxy-links-ui.html /proxy/proxy-links-ui.html
 ADD proxy/run.sh /proxy/run.sh
-RUN chmod +x /proxy/run.sh /proxy/proxy-links-ui.py
+RUN chmod +x /proxy/run.sh /proxy/proxy-links-ui.py /proxy/ovpn_refresh.py /proxy/vpngate.py
 
 CMD ["/proxy/run.sh"]
