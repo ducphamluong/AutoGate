@@ -17,6 +17,6 @@ sh /slave/tinyproxy.sh &
 sh /slave/watchdog.sh &
 
 while :; do
-	echo "Running.. (failover+rotate active)"
+	echo "Running.. (failover on down; rotate only if OVPN_ROTATE_ENABLE=1)"
 	sleep 180
 done
