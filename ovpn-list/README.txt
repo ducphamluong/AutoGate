@@ -2,7 +2,9 @@
 #
 #   .\download_publicvpnlist.bat
 #   .\download_publicvpnlist.bat JP 10
-#   python download_publicvpnlist.py --country JP --max 10 --clear
+#   python download_publicvpnlist.py --country JP --max 10
+#
+# Downloader never deletes this folder or existing files.
 #
 # If this folder has one or more *.ovpn files, AutoGate uses ONLY these
 # (after TCP live-check on remote host:port) and skips remote scrapers.

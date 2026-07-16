@@ -4,6 +4,7 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 
 REM Download PublicVPNList .ovpn into .\ovpn-list
+REM NEVER deletes ovpn-list folder or existing files (append/overwrite by name only)
 REM Usage:
 REM   .\download_publicvpnlist.bat
 REM   .\download_publicvpnlist.bat JP 10
@@ -17,6 +18,8 @@ if not "%~2"=="" set "MAXN=%~2"
 
 echo === download_publicvpnlist ===
 echo country=%COUNTRY% max=%MAXN%
+echo out=%~dp0ovpn-list
+echo (existing files kept; no delete)
 echo.
 
 where python >nul 2>nul
@@ -25,7 +28,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-python "%~dp0download_publicvpnlist.py" --country "%COUNTRY%" --max %MAXN% --out "%~dp0ovpn-list" --clear
+python "%~dp0download_publicvpnlist.py" --country "%COUNTRY%" --max %MAXN% --out "%~dp0ovpn-list"
 set "ERR=%ERRORLEVEL%"
 if not "%ERR%"=="0" (
   echo [!] download failed code=%ERR%

@@ -5,7 +5,10 @@ Examples (PowerShell, from repo root):
   python download_publicvpnlist.py
   python download_publicvpnlist.py --country JP --max 10
   python download_publicvpnlist.py --country US,JP --max 5 --no-live
-  python download_publicvpnlist.py --out ovpn-list --clear
+  python download_publicvpnlist.py --out ovpn-list
+
+Never deletes existing files or the ovpn-list folder — only adds/overwrites
+by the same output filename.
 
 Flow (same as in-container adapter):
   1) GET  /local/api/vpn-data.php          catalog
@@ -60,12 +63,7 @@ def parse_args() -> argparse.Namespace:
         "--out",
         "-o",
         default=str(ROOT / "ovpn-list"),
-        help="Output directory (default ./ovpn-list)",
-    )
-    p.add_argument(
-        "--clear",
-        action="store_true",
-        help="Delete existing *.ovpn in output dir before write",
+        help="Output directory (default ./ovpn-list). Never deleted.",
     )
     p.add_argument(
         "--live",
@@ -135,13 +133,8 @@ def main() -> int:
     # Cap again after live filter
     configs = configs[: args.max]
 
-    if args.clear:
-        removed = 0
-        for path in out_dir.glob("*.ovpn"):
-            path.unlink(missing_ok=True)
-            removed += 1
-        print(f"cleared {removed} old .ovpn in {out_dir}", flush=True)
-
+    # Safety: never delete ovpn-list/ or existing user files.
+    # Only write/overwrite the specific filenames we generate this run.
     written = 0
     for cfg in configs:
         cfg.ensure_parsed_remote()

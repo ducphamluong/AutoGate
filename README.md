@@ -180,9 +180,11 @@ OVPN_SOURCES=vpngate,ipspeed,openproxylist,publicvpnlist
 # tải list .ovpn về .\ovpn-list (catalog + token API, TCP live-check)
 .\download_publicvpnlist.bat JP 10
 # hoặc:
-python download_publicvpnlist.py --country JP --max 10 --clear
+python download_publicvpnlist.py --country JP --max 10
 python download_publicvpnlist.py --country US,JP --max 5
 ```
+
+Downloader **không xóa** folder `ovpn-list` hay file cũ — chỉ thêm/ghi đè theo tên file tải được.
 
 2. Nếu folder **có** `.ovpn` và **TCP live-check** (host:port) pass → master **chỉ** dùng local (bỏ remote scrapers).
 3. Worker random trong `./ovpn` — muốn **đúng 1 file**: để **1** file trong `ovpn-list/`.
