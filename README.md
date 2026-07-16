@@ -217,11 +217,14 @@ autogate.bat US,JP 10 ovpn
 
 ### Country filter (locale only)
 
-Set `COUNTRY_FILTER` to one or more ISO2 codes (comma-separated). Applies to **OpenVPN pool only**.
+Set `COUNTRY_FILTER` for the **OpenVPN pool only** (default `all` = mọi nước).
 
 ```bash
+# default in .env
+COUNTRY_FILTER=all
+
+# one or multi ISO2:
 COUNTRY_FILTER=JP docker compose up -d --build
-# or multi:
 COUNTRY_FILTER=US,JP EGRESS_MODE=ovpn docker compose up -d --build
 ```
 

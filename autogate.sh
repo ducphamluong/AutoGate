@@ -56,11 +56,15 @@ parse_args() {
 
 parse_args "$@"
 
-if [ -n "${COUNTRY_FILTER:-}" ]; then
-  # Normalize each ISO2 part to uppercase
+COUNTRY_FILTER="${COUNTRY_FILTER:-all}"
+# Normalize: all/* stay as all; ISO2 lists uppercased
+cf_lower="$(echo "$COUNTRY_FILTER" | tr '[:upper:]' '[:lower:]')"
+if [ -z "$cf_lower" ] || [ "$cf_lower" = "all" ] || [ "$cf_lower" = "*" ] || [ "$cf_lower" = "any" ]; then
+  export COUNTRY_FILTER="all"
+else
   COUNTRY_FILTER="$(echo "$COUNTRY_FILTER" | tr '[:lower:]' '[:upper:]')"
   export COUNTRY_FILTER
-  # Psiphon accepts a single region — use first country from the filter
+  # Psiphon accepts a single region — first country from multi filter
   if [ -z "${PSIPHON_EGRESS_REGION:-}" ]; then
     export PSIPHON_EGRESS_REGION="${COUNTRY_FILTER%%,*}"
   fi
@@ -109,9 +113,7 @@ worker_port_range() {
 }
 
 print_runtime_info() {
-  if [ -n "${COUNTRY_FILTER:-}" ]; then
-    echo "=> Country filter  : $COUNTRY_FILTER"
-  fi
+  echo "=> Country filter  : ${COUNTRY_FILTER:-all}"
   echo "=> Egress mode     : $EGRESS_MODE"
   echo "=> OVPN sources    : $OVPN_SOURCES"
   echo "=> Proxy xoay vong: http://localhost:56789"

@@ -150,12 +150,24 @@ def normalize_country(value: str | None) -> str:
 
 
 def parse_country_filter(raw: str | None) -> set[str]:
-    """Parse COUNTRY_FILTER env (comma-separated ISO2 / names) into ISO2 set."""
+    """Parse COUNTRY_FILTER env into ISO2 set.
+
+    Empty set = no filter (all countries).
+    Sentinels treated as all: empty, ``all``, ``*``, ``any``.
+    """
     if not raw:
         return set()
+    cleaned = raw.strip()
+    if not cleaned:
+        return set()
+    if cleaned.lower() in {"all", "*", "any"}:
+        return set()
     result: set[str] = set()
-    for part in raw.split(","):
-        code = normalize_country(part)
+    for part in cleaned.split(","):
+        token = part.strip()
+        if not token or token.lower() in {"all", "*", "any"}:
+            continue
+        code = normalize_country(token)
         if code:
             result.add(code)
     return result

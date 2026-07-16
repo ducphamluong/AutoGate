@@ -11,7 +11,7 @@ services:
         env_file:
             - .env
         environment:
-            COUNTRY_FILTER: ${COUNTRY_FILTER:-}
+            COUNTRY_FILTER: ${COUNTRY_FILTER:-all}
             PROXY_WORKER_COUNT: ${PROXY_WORKER_COUNT:-10}
             EGRESS_MODE: ${EGRESS_MODE:-all}
             OVPN_SOURCES: ${OVPN_SOURCES:-vpngate,ipspeed,openproxylist,publicvpnlist}
