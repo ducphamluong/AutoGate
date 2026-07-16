@@ -21,6 +21,8 @@ from ovpn_sources.base import (  # noqa: E402
     safe_filename_part,
 )
 from ovpn_sources.country_map import parse_country_filter  # noqa: E402
+from ovpn_sources.live_check import filter_live, live_check_enabled  # noqa: E402
+from ovpn_sources.local_list import list_dir_has_ovpn, resolve_list_dir  # noqa: E402
 from ovpn_sources.registry import (  # noqa: E402
     get_source,
     list_source_keys,
@@ -50,6 +52,13 @@ def env_int(name: str, default: int) -> int:
         return default
 
 
+def env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
 def selected_sources() -> list[str]:
     raw = os.environ.get("OVPN_SOURCES", DEFAULT_SOURCES)
     keys = [part.strip().lower() for part in raw.split(",") if part.strip()]
@@ -66,6 +75,9 @@ def write_auth_file(output_dir: str) -> None:
 
 def config_filename(cfg: OvpnConfig) -> str:
     cfg.ensure_parsed_remote()
+    # Preserve human name for local pin files
+    if cfg.source in {"local", "ovpn-list"}:
+        return f"local_{safe_filename_part(cfg.name)}.ovpn"
     if cfg.remote_host and cfg.remote_port:
         base = f"{cfg.source}_{safe_filename_part(cfg.remote_host)}_{cfg.remote_port}"
     elif cfg.remote_host:
@@ -103,7 +115,6 @@ def dedupe_and_cap(configs: Iterable[OvpnConfig], max_configs: int) -> list[Ovpn
     if not by_source:
         return []
 
-    # Round-robin across sources
     result: list[OvpnConfig] = []
     indices = {src: 0 for src in order}
     while len(result) < max_configs:
@@ -167,12 +178,12 @@ def replace_configs(source_dir: str) -> None:
             os.unlink(path)
 
 
-def fetch_all(allowed: set[str]) -> list[OvpnConfig]:
+def fetch_sources(source_keys: list[str], allowed: set[str]) -> list[OvpnConfig]:
     register_builtin_sources()
     available = set(list_source_keys())
     collected: list[OvpnConfig] = []
 
-    for key in selected_sources():
+    for key in source_keys:
         if key not in available:
             log(
                 "ovpn_refresh - unknown source "
@@ -193,17 +204,59 @@ def fetch_all(allowed: set[str]) -> list[OvpnConfig]:
     return collected
 
 
+def maybe_live_filter(configs: list[OvpnConfig], *, force: bool = False) -> list[OvpnConfig]:
+    """Run TCP live-check when forced (local list) or OVPN_LIVE_CHECK=1."""
+    if not configs:
+        return configs
+    if force or live_check_enabled(default=False):
+        log("ovpn_refresh - live_check enabled")
+        return filter_live(configs)
+    return configs
+
+
+def fetch_prefer_local(allowed: set[str]) -> list[OvpnConfig]:
+    """If ovpn-list has *.ovpn, use only those (after live-check); else remote sources."""
+    list_dir = resolve_list_dir()
+    priority = env_bool("OVPN_LIST_PRIORITY", True)
+    live_local = env_bool("OVPN_LIST_LIVE_CHECK", True)
+
+    if priority and list_dir_has_ovpn(list_dir):
+        log(f"ovpn_refresh - ovpn-list present: {list_dir} (priority over remote sources)")
+        local_cfgs = fetch_sources(["local"], allowed)
+        if live_local:
+            local_cfgs = maybe_live_filter(local_cfgs, force=True)
+        if local_cfgs:
+            log(f"ovpn_refresh - using {len(local_cfgs)} live local profile(s) only")
+            return local_cfgs
+        log(
+            "ovpn_refresh - ovpn-list had files but none passed live-check; "
+            "falling back to OVPN_SOURCES"
+        )
+
+    sources = selected_sources()
+    # Avoid double-fetch if user already put local in OVPN_SOURCES
+    collected = fetch_sources(sources, allowed)
+    return maybe_live_filter(collected, force=False)
+
+
 def main() -> None:
     log("ovpn_refresh - start")
-    allowed = parse_country_filter(os.environ.get("COUNTRY_FILTER", ""))
+    allowed = parse_country_filter(os.environ.get("COUNTRY_FILTER", "all"))
     if allowed:
         log(f"ovpn_refresh - country filter: {','.join(sorted(allowed))}")
+    else:
+        log("ovpn_refresh - country filter: all")
 
     max_configs = env_int("MAX_OVPN_CONFIGS", DEFAULT_MAX)
-    sources = selected_sources()
-    log(f"ovpn_refresh - sources: {','.join(sources)} max={max_configs}")
+    list_dir = resolve_list_dir()
+    log(
+        f"ovpn_refresh - OVPN_LIST_DIR={list_dir} "
+        f"has_files={list_dir_has_ovpn(list_dir)} "
+        f"priority={env_bool('OVPN_LIST_PRIORITY', True)}"
+    )
+    log(f"ovpn_refresh - remote sources: {','.join(selected_sources())} max={max_configs}")
 
-    collected = fetch_all(allowed)
+    collected = fetch_prefer_local(allowed)
     selected = dedupe_and_cap(collected, max_configs)
     log(f"ovpn_refresh - after dedupe/cap: {len(selected)} (raw={len(collected)})")
 

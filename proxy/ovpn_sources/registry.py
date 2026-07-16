@@ -22,6 +22,14 @@ def register_builtin_sources() -> None:
 
     register(VpnGateSource())
 
+    try:
+        from .local_list import LocalListSource, OvpnListAliasSource
+
+        register(LocalListSource())
+        register(OvpnListAliasSource())
+    except Exception:
+        pass
+
     # Optional adapters — import lazily so missing modules don't break core.
     try:
         from .ipspeed import IpSpeedSource

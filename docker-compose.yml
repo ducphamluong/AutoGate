@@ -39,6 +39,11 @@ services:
             PUBLICVPNLIST_BUDGET_SECONDS: ${PUBLICVPNLIST_BUDGET_SECONDS:-90}
             PUBLICVPNLIST_REQUEST_DELAY: ${PUBLICVPNLIST_REQUEST_DELAY:-1.0}
             PUBLICVPNLIST_LIVE_CHECK: ${PUBLICVPNLIST_LIVE_CHECK:-0}
+            OVPN_LIST_DIR: ${OVPN_LIST_DIR:-/ovpn-list}
+            OVPN_LIST_PRIORITY: ${OVPN_LIST_PRIORITY:-1}
+            OVPN_LIST_LIVE_CHECK: ${OVPN_LIST_LIVE_CHECK:-1}
+            OVPN_LIVE_CHECK: ${OVPN_LIVE_CHECK:-0}
+            OVPN_LIVE_CHECK_TIMEOUT: ${OVPN_LIVE_CHECK_TIMEOUT:-3}
         ports:
             - 2086:10000
             - 56789:9999
@@ -46,6 +51,7 @@ services:
             - 56800-56819:56800-56819
         volumes:
            - ./ovpn:/ovpn
+           - ./ovpn-list:/ovpn-list:ro
         links:
             - warp:warp
             - proxy001:proxy001

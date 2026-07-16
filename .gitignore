@@ -1,5 +1,7 @@
 data/
 ovpn/
+ovpn-list/*.ovpn
+!ovpn-list/README.txt
 psiphon_data/
 proxy/__pycache__/
 *.pyc

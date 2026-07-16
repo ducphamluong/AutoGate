@@ -166,13 +166,25 @@ autogate.bat [start|restart|stop|status|logs] [COUNTRIES] [PORTS] [EGRESS_MODE]
 ## Configuration
 
 See [`.env.example`](.env.example) (full sample) and local [`.env`](.env) (copy/edit).  
-`OVPN_SOURCES` lists enabled OpenVPN fetchers — default sample is **all four**:
+`OVPN_SOURCES` lists enabled OpenVPN fetchers — default sample is **all four remote**:
 
 ```text
 OVPN_SOURCES=vpngate,ipspeed,openproxylist,publicvpnlist
 ```
 
-Tắt source: xóa tên khỏi list trong `.env` rồi restart stack / chạy lại refresh.
+### Local `ovpn-list/` (ưu tiên)
+
+1. Tạo/thả file vào `./ovpn-list/*.ovpn` (compose mount read-only vào container).
+2. Nếu folder **có** `.ovpn` và **TCP live-check** (host:port trong file) pass → master **chỉ** dùng các file local (bỏ remote scrapers).
+3. Worker random trong pool `./ovpn` — muốn **đúng 1 file**: để **1** file trong `ovpn-list/`.
+
+```env
+OVPN_LIST_PRIORITY=1
+OVPN_LIST_LIVE_CHECK=1
+OVPN_LIVE_CHECK_TIMEOUT=3
+```
+
+Tắt source remote: xóa tên khỏi `OVPN_SOURCES` trong `.env`.
 
 ### VPN rotation interval
 
