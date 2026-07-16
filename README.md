@@ -174,15 +174,26 @@ OVPN_SOURCES=vpngate,ipspeed,openproxylist,publicvpnlist
 
 ### Local `ovpn-list/` (ưu tiên)
 
-1. Tạo/thả file vào `./ovpn-list/*.ovpn` (compose mount read-only vào container).
-2. Nếu folder **có** `.ovpn` và **TCP live-check** (host:port trong file) pass → master **chỉ** dùng các file local (bỏ remote scrapers).
-3. Worker random trong pool `./ovpn` — muốn **đúng 1 file**: để **1** file trong `ovpn-list/`.
+1. Tạo/thả file vào `./ovpn-list/*.ovpn` **hoặc tải từ PublicVPNList** (host, ngoài Docker):
+
+```powershell
+# tải list .ovpn về .\ovpn-list (catalog + token API, TCP live-check)
+.\download_publicvpnlist.bat JP 10
+# hoặc:
+python download_publicvpnlist.py --country JP --max 10 --clear
+python download_publicvpnlist.py --country US,JP --max 5
+```
+
+2. Nếu folder **có** `.ovpn` và **TCP live-check** (host:port) pass → master **chỉ** dùng local (bỏ remote scrapers).
+3. Worker random trong `./ovpn` — muốn **đúng 1 file**: để **1** file trong `ovpn-list/`.
 
 ```env
 OVPN_LIST_PRIORITY=1
 OVPN_LIST_LIVE_CHECK=1
 OVPN_LIVE_CHECK_TIMEOUT=3
 ```
+
+PublicVPNList trong stack (`OVPN_SOURCES=...publicvpnlist`) cũng tự fetch khi refresh; script `download_publicvpnlist.*` dùng khi muốn **đổ sẵn** vào `ovpn-list` rồi pin local.
 
 Tắt source remote: xóa tên khỏi `OVPN_SOURCES` trong `.env`.
 
