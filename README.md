@@ -165,7 +165,14 @@ autogate.bat [start|restart|stop|status|logs] [COUNTRIES] [PORTS] [EGRESS_MODE]
 
 ## Configuration
 
-See also [`.env.example`](.env.example) for a full variable list.
+See [`.env.example`](.env.example) (full sample) and local [`.env`](.env) (copy/edit).  
+`OVPN_SOURCES` lists enabled OpenVPN fetchers — default sample is **all four**:
+
+```text
+OVPN_SOURCES=vpngate,ipspeed,openproxylist,publicvpnlist
+```
+
+Tắt source: xóa tên khỏi list trong `.env` rồi restart stack / chạy lại refresh.
 
 ### VPN rotation interval
 

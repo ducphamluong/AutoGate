@@ -3,3 +3,5 @@ ovpn/
 psiphon_data/
 proxy/__pycache__/
 *.pyc
+.env
+.env.local

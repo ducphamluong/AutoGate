@@ -28,7 +28,8 @@ from ovpn_sources.registry import (  # noqa: E402
 )
 
 OVPN_DIR = os.environ.get("OVPN_DIR", "/ovpn")
-DEFAULT_SOURCES = "vpngate,ipspeed"
+# Full sample set; override via OVPN_SOURCES / .env
+DEFAULT_SOURCES = "vpngate,ipspeed,openproxylist,publicvpnlist"
 DEFAULT_MAX = 80
 DEFAULT_USER = "vpn"
 DEFAULT_PASS = "vpn"
@@ -84,15 +85,40 @@ def dedupe_key(cfg: OvpnConfig) -> str:
 
 
 def dedupe_and_cap(configs: Iterable[OvpnConfig], max_configs: int) -> list[OvpnConfig]:
+    """Dedupe by host:port, then interleave sources so one source cannot fill the cap alone."""
     seen: set[str] = set()
-    result: list[OvpnConfig] = []
+    by_source: dict[str, list[OvpnConfig]] = {}
+    order: list[str] = []
     for cfg in configs:
         key = dedupe_key(cfg)
         if key in seen:
             continue
         seen.add(key)
-        result.append(cfg)
-        if len(result) >= max_configs:
+        src = cfg.source or "unknown"
+        if src not in by_source:
+            by_source[src] = []
+            order.append(src)
+        by_source[src].append(cfg)
+
+    if not by_source:
+        return []
+
+    # Round-robin across sources
+    result: list[OvpnConfig] = []
+    indices = {src: 0 for src in order}
+    while len(result) < max_configs:
+        progressed = False
+        for src in order:
+            i = indices[src]
+            bucket = by_source[src]
+            if i >= len(bucket):
+                continue
+            result.append(bucket[i])
+            indices[src] = i + 1
+            progressed = True
+            if len(result) >= max_configs:
+                break
+        if not progressed:
             break
     return result
 

@@ -12,6 +12,13 @@ DIR="${AUTOGATE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 ACTION="start"
 EXTRA_ARG=""
 MAX_WORKER_COUNT=20
+# Load .env sample/local overrides (Docker Compose also reads this file).
+if [ -f "$DIR/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$DIR/.env"
+  set +a
+fi
 PROXY_WORKER_COUNT="${PROXY_WORKER_COUNT:-10}"
 EGRESS_MODE="${EGRESS_MODE:-all}"
 export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-2}"
@@ -72,7 +79,7 @@ fi
 
 export PROXY_WORKER_COUNT
 export EGRESS_MODE
-export OVPN_SOURCES="${OVPN_SOURCES:-vpngate,ipspeed}"
+export OVPN_SOURCES="${OVPN_SOURCES:-vpngate,ipspeed,openproxylist,publicvpnlist}"
 export MAX_OVPN_CONFIGS="${MAX_OVPN_CONFIGS:-80}"
 export OVPN_REFRESH_SECONDS="${OVPN_REFRESH_SECONDS:-1800}"
 export OVPN_DEFAULT_USER="${OVPN_DEFAULT_USER:-vpn}"
@@ -140,7 +147,7 @@ EGRESS_MODE:
   custom         dung ENABLE_WARP / ENABLE_PROXYBROKER / ENABLE_PSIPHON / ENABLE_OVPN
 
 Env bo sung (optional):
-  OVPN_SOURCES=vpngate,ipspeed[,openproxylist][,publicvpnlist]
+  OVPN_SOURCES=vpngate,ipspeed,openproxylist,publicvpnlist   # edit in .env
   MAX_OVPN_CONFIGS=80
   OVPN_DEFAULT_USER=vpn  OVPN_DEFAULT_PASS=vpn
 
