@@ -177,11 +177,12 @@ OVPN_SOURCES=vpngate,ipspeed,openproxylist,publicvpnlist
 1. Tạo/thả file vào `./ovpn-list/*.ovpn` **hoặc tải từ PublicVPNList** (host, ngoài Docker):
 
 ```powershell
-# tải list .ovpn về .\ovpn-list (catalog + token API, TCP live-check)
-.\download_publicvpnlist.bat JP 10
-# hoặc:
-python download_publicvpnlist.py --country JP --max 10
-python download_publicvpnlist.py --country US,JP --max 5
+# tải list .ovpn về .\ovpn-list
+# Mặc định: TCP live/die TRƯỚC, rồi mới download file còn sống
+.\download_publicvpnlist.bat JP 100
+python download_publicvpnlist.py --country JP --max 100
+# tắt precheck (không khuyến nghị):
+python download_publicvpnlist.py --country JP --max 100 --no-precheck
 ```
 
 Downloader **không xóa** folder `ovpn-list` hay file cũ — chỉ thêm/ghi đè theo tên file tải được.

@@ -26,11 +26,14 @@ import re
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 from typing import Any, Set
 from urllib.parse import urlencode, urljoin
 
 from .base import OvpnConfig, parse_remote, safe_filename_part
 from .country_map import normalize_country
+from .live_check import filter_rows_live
 
 BASE_URL = "https://publicvpnlist.com/"
 CATALOG_URL = urljoin(BASE_URL, "local/api/vpn-data.php")
@@ -93,7 +96,8 @@ class PublicVpnListSource:
     def fetch(self, allowed_countries: Set[str]) -> list[OvpnConfig]:
         deadline = time.monotonic() + self._budget()
         max_per_country = self._max_per_country()
-        do_live = self._live_check_enabled()
+        do_site_live = self._live_check_enabled()
+        precheck = self._precheck_enabled()
 
         candidates = self._load_candidates(allowed_countries, deadline)
         if not candidates:
@@ -104,46 +108,100 @@ class PublicVpnListSource:
             )
             return []
 
-        # Cap per country + global max; prefer recommended/fresh/speed
         global_max = self._global_max()
-        selected = self._select_candidates(candidates, max_per_country)[:global_max]
-        configs: list[OvpnConfig] = []
-        delay = self._request_delay()
-        consecutive_429 = 0
+        # Over-select for precheck so enough survive TCP filter
+        pool_size = max(global_max * self._precheck_multiplier(), global_max)
+        selected = self._select_candidates(candidates, max_per_country)[:pool_size]
+        print(
+            f"publicvpnlist: selected {len(selected)} candidates "
+            f"(target live downloads={global_max}, precheck={precheck})",
+            flush=True,
+        )
 
-        for row in selected:
+        if precheck:
+            # Fast parallel TCP on catalog host:port BEFORE token download
+            selected = filter_rows_live(
+                selected,
+                timeout=self._precheck_timeout(),
+                workers=self._precheck_workers(),
+                stop_after=None,
+            )
+            if not selected:
+                print("publicvpnlist: no candidates passed TCP precheck", flush=True)
+                return []
+
+        # Only download tokens for live (or top) rows
+        to_download = selected[: max(global_max * 2, global_max)]
+        configs = self._download_rows_parallel(
+            to_download,
+            global_max=global_max,
+            deadline=deadline,
+            do_site_live=do_site_live,
+        )
+
+        if not configs:
+            print(
+                "publicvpnlist: candidates found but no .ovpn downloaded "
+                "(token/download failed or rate-limited)",
+                flush=True,
+            )
+        return configs
+
+    def _download_rows_parallel(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        global_max: int,
+        deadline: float,
+        do_site_live: bool,
+    ) -> list[OvpnConfig]:
+        """Download tokens with global rate limit (site returns HTTP 429 if burst).
+
+        TCP precheck is already parallel; token API must stay gentle.
+        Default: 1 worker, paced delay; retries on 429.
+        """
+        workers = self._download_workers()
+        delay = self._request_delay()
+        rate_lock = Lock()
+        last_req = {"t": 0.0}
+        configs: list[OvpnConfig] = []
+
+        def pace() -> None:
+            with rate_lock:
+                now = time.monotonic()
+                wait = delay - (now - last_req["t"])
+                if wait > 0:
+                    time.sleep(wait)
+                last_req["t"] = time.monotonic()
+
+        def one(row: dict[str, Any]) -> OvpnConfig | None:
             if time.monotonic() > deadline:
-                break
-            if len(configs) >= global_max:
-                break
+                return None
             server_id = str(row.get("id") or "").strip()
             if not server_id:
-                continue
-
-            if do_live:
+                return None
+            if do_site_live:
                 self._live_test(server_id)
 
-            try:
-                body = self._download_ovpn(server_id)
-                consecutive_429 = 0
-            except Exception as exc:
-                msg = str(exc)
-                print(f"publicvpnlist download fail id={server_id}: {exc}", flush=True)
-                if "429" in msg:
-                    consecutive_429 += 1
-                    # Back off: 2s, 4s, 8s... then stop to avoid hammering
-                    sleep_s = min(30, 2 ** min(consecutive_429, 4))
-                    print(f"publicvpnlist: rate-limited, sleep {sleep_s}s", flush=True)
-                    time.sleep(sleep_s)
-                    if consecutive_429 >= 5:
-                        print(
-                            "publicvpnlist: too many 429s, stop this source early",
-                            flush=True,
-                        )
-                        break
-                continue
+            body = None
+            for attempt in range(4):
+                if time.monotonic() > deadline:
+                    return None
+                pace()
+                try:
+                    body = self._download_ovpn(server_id)
+                    break
+                except Exception as exc:
+                    msg = str(exc)
+                    print(f"publicvpnlist download fail id={server_id}: {exc}", flush=True)
+                    if "429" in msg:
+                        sleep_s = min(25, 2 ** (attempt + 1))
+                        print(f"publicvpnlist: 429 retry in {sleep_s}s", flush=True)
+                        time.sleep(sleep_s)
+                        continue
+                    return None
             if not body or "remote " not in body.lower() or body.lstrip().startswith("<"):
-                continue
+                return None
 
             host, port = parse_remote(body)
             if not host:
@@ -164,17 +222,45 @@ class PublicVpnListSource:
                 remote_port=port,
             )
             cfg.detect_auth()
-            configs.append(cfg)
-            if delay > 0:
-                time.sleep(delay)
+            return cfg
 
-        if not configs:
-            print(
-                "publicvpnlist: candidates found but no .ovpn downloaded "
-                "(token/download failed or rate-limited)",
-                flush=True,
-            )
-        return configs
+        # Sequential or lightly parallel; always globally paced
+        if workers <= 1:
+            for row in rows:
+                if time.monotonic() > deadline or len(configs) >= global_max:
+                    break
+                cfg = one(row)
+                if cfg is None:
+                    continue
+                configs.append(cfg)
+                print(
+                    f"publicvpnlist got {len(configs)}/{global_max}: "
+                    f"{cfg.remote_host}:{cfg.remote_port}",
+                    flush=True,
+                )
+            return configs[:global_max]
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futs = []
+            for row in rows:
+                if len(futs) >= global_max * 2:
+                    break
+                futs.append(pool.submit(one, row))
+            for fut in as_completed(futs):
+                if time.monotonic() > deadline:
+                    break
+                cfg = fut.result()
+                if cfg is None:
+                    continue
+                configs.append(cfg)
+                print(
+                    f"publicvpnlist got {len(configs)}/{global_max}: "
+                    f"{cfg.remote_host}:{cfg.remote_port}",
+                    flush=True,
+                )
+                if len(configs) >= global_max:
+                    break
+        return configs[:global_max]
 
     def _max_per_country(self) -> int:
         raw = os.environ.get("PUBLICVPNLIST_MAX_PER_COUNTRY", "").strip()
@@ -189,11 +275,45 @@ class PublicVpnListSource:
         return 20
 
     def _request_delay(self) -> float:
-        raw = os.environ.get("PUBLICVPNLIST_REQUEST_DELAY", "0.8").strip()
+        # Global min spacing between get_token calls (avoid HTTP 429)
+        raw = os.environ.get("PUBLICVPNLIST_REQUEST_DELAY", "0.45").strip()
         try:
             return max(0.0, float(raw))
         except ValueError:
-            return 0.8
+            return 0.45
+
+    def _download_workers(self) -> int:
+        # Default 1: token API is rate-limited; precheck is already parallel
+        raw = os.environ.get("PUBLICVPNLIST_DOWNLOAD_WORKERS", "1").strip()
+        if raw.isdigit() and int(raw) > 0:
+            return min(8, int(raw))
+        return 1
+
+    def _precheck_enabled(self) -> bool:
+        raw = os.environ.get("PUBLICVPNLIST_PRECHECK", "1").strip().lower()
+        if not raw:
+            return True
+        return raw in {"1", "true", "yes", "on"}
+
+    def _precheck_workers(self) -> int:
+        raw = os.environ.get("PUBLICVPNLIST_PRECHECK_WORKERS", "60").strip()
+        if raw.isdigit() and int(raw) > 0:
+            return min(200, int(raw))
+        return 60
+
+    def _precheck_timeout(self) -> float:
+        raw = os.environ.get("PUBLICVPNLIST_PRECHECK_TIMEOUT", "2").strip()
+        try:
+            return max(0.5, float(raw))
+        except ValueError:
+            return 2.0
+
+    def _precheck_multiplier(self) -> int:
+        """How many candidates to TCP-scan relative to MAX (e.g. 4x)."""
+        raw = os.environ.get("PUBLICVPNLIST_PRECHECK_MULT", "4").strip()
+        if raw.isdigit() and int(raw) > 0:
+            return min(20, int(raw))
+        return 4
 
     def _budget(self) -> int:
         raw = os.environ.get("PUBLICVPNLIST_BUDGET_SECONDS", "").strip()

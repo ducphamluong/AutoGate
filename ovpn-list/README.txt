@@ -1,10 +1,11 @@
 # Drop your .ovpn profiles here, OR download from PublicVPNList:
 #
 #   .\download_publicvpnlist.bat
-#   .\download_publicvpnlist.bat JP 10
-#   python download_publicvpnlist.py --country JP --max 10
+#   .\download_publicvpnlist.bat JP 100
+#   python download_publicvpnlist.py --country JP --max 100
 #
-# Downloader never deletes this folder or existing files.
+# Default: TCP live/die check FIRST, then download only live hosts.
+# Never deletes this folder or existing files.
 #
 # If this folder has one or more *.ovpn files, AutoGate uses ONLY these
 # (after TCP live-check on remote host:port) and skips remote scrapers.
