@@ -9,7 +9,7 @@ Date: 2026-07-16
 | `OVPN_SOURCES=vpngate,ipspeed,openproxylist` + `US,JP` | multi files, fail-soft opl | PASS (vpngate+ipspeed; opl 0 ids, pool kept) |
 | Unit: country_map + auth inject | normalize + rewrite path | PASS |
 | EGRESS_MODE=ovpn (config filter sim) | only vpn* servers | PASS |
-| `publicvpnlist` alone | clear skip, no crash | PASS (skipped: no stable HTTP) |
+| `publicvpnlist` alone + JP max=3 | token + real `.ovpn` with remote | PASS (catalog 9915 → 3 files) |
 | `openproxylist` alone without IDs | clear skip | PASS |
 | Full docker `curl -x :56789` | workers UP | NOT RUN (no docker stack in this cook session) |
 
