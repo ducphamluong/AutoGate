@@ -1,73 +1,55 @@
-# OpenProxyList endpoints (Chrome recon + reverse 2026-07-16)
+# OpenProxyList endpoints + reCAPTCHA v3 browser path
 
-## Feasibility
+## reCAPTCHA v3 reality
 
-| Path | Captcha? | Works pure HTTP? |
-|------|----------|------------------|
-| `POST /openvpn/list` | **reCAPTCHA v3 required** | Only with valid token |
-| `GET /openvpn/download/{id}` | No | **YES** |
-| `POST /openvpn/bulk-download` | Session/list keys | Zip of selected ids |
+v3 is **not** a click-puzzle. Google returns a score for the session.
 
-## List API
+- Real browser loads page → `grecaptcha.execute(sitekey, {action})` → high score → list OK
+- Headless bot / bad TLS / no JS → low score or missing token → `reCAPTCHA verification failed`
+- **No 2Captcha required** if Playwright/Camoufox can run on the host
+
+## Token mint (preferred)
+
+```text
+Playwright Chromium/Chrome  or  Camoufox
+  → open https://openproxylist.com/openvpn/
+  → wait grecaptcha
+  → token = grecaptcha.execute(sitekey, { action: 'validate_captcha' })
+```
+
+sitekey: `6LepNaEaAAAAAMcfZb4shvxaVWulaKUfjhOxOHRS`
+
+## List + download
 
 ```http
 POST /openvpn/list
-Content-Type: application/x-www-form-urlencoded
-X-Requested-With: XMLHttpRequest
-Referer: https://openproxylist.com/openvpn/
+  dataType=openvpn&g-recaptcha-response=TOKEN&page=1&sort=sortlast&country[]=jp
 
-dataType=openvpn
-&g-recaptcha-response=<TOKEN>
-&page=1
-&sort=sortlast
-&country[]=jp          # optional, lowercase ISO2
-&response=
-```
-
-Response: HTML fragment (pagination + table). Parse:
-
-- `/openvpn/download/{id}`
-- `/openvpn/country/{cc}`
-
-Empty/invalid captcha →:
-
-```html
-<div class="... bg-danger ...">reCAPTCHA verification failed. Please try again.</div>
-```
-
-## reCAPTCHA v3
-
-| Field | Value |
-|-------|-------|
-| sitekey | `6LepNaEaAAAAAMcfZb4shvxaVWulaKUfjhOxOHRS` |
-| action | `validate_captcha` |
-| load | `grecaptcha.execute(sitekey, {action})` in `main.min.js` |
-
-### Solving options
-
-1. **2Captcha** (recommended for container): set `TWOCAPTCHA_API_KEY`
-2. **Manual token**: `OPENPROXYLIST_RECAPTCHA_TOKEN` (short-lived)
-3. **Skip list**: `OPENPROXYLIST_IDS=124,1,123` then download-only
-
-2Captcha request shape: `method=userrecaptcha&version=v3&action=validate_captcha&googlekey=...&pageurl=https://openproxylist.com/openvpn/`
-
-## Download
-
-```http
 GET /openvpn/download/{id}
-→ application/octet-stream  (.ovpn with remote ...)
+  → .ovpn (no captcha)
 ```
 
-## Adapter env
+HTTP layer prefers **curl_cffi** Chrome TLS impersonation when installed.
+
+## Env
 
 ```bash
-OVPN_SOURCES=...,openproxylist
-OPENPROXYLIST_MAX=30
-OPENPROXYLIST_MAX_PAGES=3
-OPENPROXYLIST_BUDGET_SECONDS=120
-OPENPROXYLIST_SORT=sortlast
-TWOCAPTCHA_API_KEY=...
-# or:
-OPENPROXYLIST_RECAPTCHA_TOKEN=...
-OPENPROXYLIST_IDS=124,960
+pip install -r requirements-ovpn-scrape.txt
+playwright install chromium
+# or: set OPENPROXYLIST_PLAYWRIGHT_CHANNEL=chrome
+
+OVPN_SOURCES=vpngate,ipspeed,openproxylist
+OPENPROXYLIST_BROWSER=auto          # playwright | camoufox | off
+OPENPROXYLIST_HEADLESS=1            # 0 if score still low
+OPENPROXYLIST_MAX_PAGES=2
 ```
+
+## Docker note
+
+Default `haproxy` Alpine image has **no** browser. Options:
+
+1. Refresh OpenProxyList on the **host** (Windows/WSL with Playwright), write `./ovpn`
+2. Or use `OPENPROXYLIST_IDS=...` only inside container
+3. Or build a heavier image with Chromium (not default)
+
+VPNGate / IPSpeed / PublicVPNList do not need a browser.

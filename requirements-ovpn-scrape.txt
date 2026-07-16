@@ -1,0 +1,14 @@
+# Optional deps for OpenProxyList (reCAPTCHA v3 via real browser + Chrome TLS).
+# Not required for VPNGate / IPSpeed / PublicVPNList.
+
+# Browser token mint (pick one or both)
+playwright>=1.40.0
+# camoufox>=0.4.0
+
+# Chrome-like TLS for list/download HTTP
+curl_cffi>=0.7.0
+
+# After installing playwright:
+#   playwright install chromium
+# Or use system Chrome:
+#   set OPENPROXYLIST_PLAYWRIGHT_CHANNEL=chrome

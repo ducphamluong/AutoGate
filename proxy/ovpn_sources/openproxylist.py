@@ -1,28 +1,20 @@
 """OpenProxyList OpenVPN adapter.
 
-Chrome recon + reverse (2026-07-16):
+reCAPTCHA v3 is score-based: a normal browser that runs grecaptcha.execute()
+usually passes without any puzzle / paid captcha API.
 
-  POST /openvpn/list
-    body: dataType=openvpn
-          g-recaptcha-response=<reCAPTCHA v3 token>
-          page=1..N
-          sort=sortlast|sortresponse
-          country[]=jp   (optional, lowercase ISO2)
-    → HTML fragment with /openvpn/download/{id} + /openvpn/country/{cc}
+Flow:
+  1. OPENPROXYLIST_IDS → download-only (no list/captcha)
+  2. OPENPROXYLIST_RECAPTCHA_TOKEN → use token as-is
+  3. Real browser (Playwright / Camoufox) → grecaptcha.execute on list page
+  4. POST /openvpn/list with token (curl_cffi Chrome TLS if available)
+  5. GET /openvpn/download/{id} for each id
 
-  reCAPTCHA v3:
-    sitekey 6LepNaEaAAAAAMcfZb4shvxaVWulaKUfjhOxOHRS
-    action  validate_captcha
-    (solved optionally via 2Captcha — TWOCAPTCHA_API_KEY)
-
-  GET /openvpn/download/{id}
-    → application/octet-stream .ovpn  (no captcha)
-
-Strategies (in order):
-  1. OPENPROXYLIST_IDS=1,2,3  → download only (no captcha)
-  2. OPENPROXYLIST_RECAPTCHA_TOKEN → list with provided token
-  3. TWOCAPTCHA_API_KEY → solve v3, then list + download
-  4. Else fail-soft with clear log
+Env:
+  OPENPROXYLIST_BROWSER=auto|playwright|camoufox|off
+  OPENPROXYLIST_HEADLESS=1
+  OPENPROXYLIST_PLAYWRIGHT_CHANNEL=chrome   # optional system Chrome
+  CURL_CFFI_IMPERSONATE=chrome131
 """
 
 from __future__ import annotations
@@ -30,22 +22,25 @@ from __future__ import annotations
 import os
 import re
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Set
 from urllib.parse import urljoin
 
 from .base import OvpnConfig, parse_remote, safe_filename_part
+from .browser_http import (
+    get_recaptcha_v3_token,
+    http_get_or_post,
+    list_available_backends,
+)
 
 BASE_URL = "https://openproxylist.com"
 LIST_PAGE = "https://openproxylist.com/openvpn/"
 LIST_API = "https://openproxylist.com/openvpn/list"
-TIMEOUT_SECONDS = 25
-SOURCE_BUDGET_SECONDS = 90
+TIMEOUT_SECONDS = 30
+SOURCE_BUDGET_SECONDS = 180
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
 
 RECAPTCHA_SITEKEY = "6LepNaEaAAAAAMcfZb4shvxaVWulaKUfjhOxOHRS"
@@ -72,10 +67,11 @@ class OpenProxyListSource:
 
         pairs = self._resolve_ids(allowed_countries, deadline)
         if not pairs:
+            backends = ", ".join(list_available_backends()) or "none"
             print(
                 "openproxylist: no server ids "
-                "(need TWOCAPTCHA_API_KEY or OPENPROXYLIST_RECAPTCHA_TOKEN "
-                "or OPENPROXYLIST_IDS=1,2,3)",
+                f"(backends={backends}; set OPENPROXYLIST_BROWSER=playwright|camoufox "
+                "or OPENPROXYLIST_IDS=... or OPENPROXYLIST_RECAPTCHA_TOKEN=...)",
                 flush=True,
             )
             return []
@@ -122,7 +118,7 @@ class OpenProxyListSource:
         raw = os.environ.get("OPENPROXYLIST_MAX_PAGES", "").strip()
         if raw.isdigit() and int(raw) > 0:
             return int(raw)
-        return 3
+        return 2
 
     def _http(
         self,
@@ -131,32 +127,25 @@ class OpenProxyListSource:
         data: bytes | None = None,
         headers: dict[str, str] | None = None,
     ) -> str:
-        h = {
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml,application/json,*/*",
-        }
-        if headers:
-            h.update(headers)
-        req = urllib.request.Request(
-            url, data=data, headers=h, method="POST" if data is not None else "GET"
+        return http_get_or_post(
+            url, data=data, headers=headers, timeout=TIMEOUT_SECONDS
         )
-        try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as response:
-                return response.read().decode("utf-8", errors="replace")
-        except urllib.error.HTTPError as exc:
-            raise RuntimeError(f"HTTP {exc.code} for {url}") from exc
 
     def _download_ovpn(self, server_id: str) -> str:
         url = urljoin(BASE_URL, f"/openvpn/download/{server_id}")
         return self._http(
             url,
-            headers={"Referer": LIST_PAGE, "Accept": "*/*"},
+            headers={
+                "Referer": LIST_PAGE,
+                "Accept": "*/*",
+                "User-Agent": USER_AGENT,
+            },
         )
 
     def _resolve_ids(
         self, allowed: Set[str], deadline: float
     ) -> list[tuple[str, str]]:
-        # 1) Manual IDs
+        # 1) Manual IDs — no browser
         raw_ids = os.environ.get("OPENPROXYLIST_IDS", "").strip()
         if raw_ids:
             result = []
@@ -167,10 +156,12 @@ class OpenProxyListSource:
             print(f"openproxylist: using OPENPROXYLIST_IDS ({len(result)})", flush=True)
             return result
 
-        # 2) Token: env override or 2captcha
+        # 2) Token from env or real browser (v3 score path)
         token = os.environ.get("OPENPROXYLIST_RECAPTCHA_TOKEN", "").strip()
-        if not token:
-            token = self._solve_captcha()
+        if token:
+            print("openproxylist: using OPENPROXYLIST_RECAPTCHA_TOKEN", flush=True)
+        else:
+            token = self._browser_token()
         if not token:
             return []
 
@@ -181,41 +172,51 @@ class OpenProxyListSource:
         for country in countries:
             if time.monotonic() > deadline:
                 break
-            # Fresh token each country/page batch if 2captcha available and multi-page
             page = 1
             pages_to_fetch = max_pages
             while page <= pages_to_fetch and time.monotonic() < deadline:
                 try:
                     html = self._fetch_list_page(token, page=page, country=country)
                 except Exception as exc:
-                    print(f"openproxylist list fail page={page} country={country or '*'}: {exc}", flush=True)
+                    print(
+                        f"openproxylist list fail page={page} country={country or '*'}: {exc}",
+                        flush=True,
+                    )
                     break
 
-                if "reCAPTCHA verification failed" in html or "captcha" in html.lower() and "failed" in html.lower():
-                    print("openproxylist: captcha rejected by server", flush=True)
-                    # one retry with new token
-                    token = self._solve_captcha() or token
+                failed = "reCAPTCHA verification failed" in html
+                if failed:
+                    print(
+                        "openproxylist: token rejected (low v3 score or expired); "
+                        "retrying with fresh browser token...",
+                        flush=True,
+                    )
+                    token = self._browser_token() or token
                     try:
                         html = self._fetch_list_page(token, page=page, country=country)
                     except Exception as exc:
                         print(f"openproxylist list retry fail: {exc}", flush=True)
                         break
                     if "reCAPTCHA verification failed" in html:
+                        print(
+                            "openproxylist: still rejected — try "
+                            "OPENPROXYLIST_BROWSER=camoufox or HEADLESS=0",
+                            flush=True,
+                        )
                         break
 
                 page_pairs = self._parse_list_html(html, default_country=country.upper())
                 for sid, cc in page_pairs:
                     by_id.setdefault(sid, cc)
 
-                # Discover total pages from first response
                 if page == 1:
                     pages = [int(x) for x in PAGE_RE.findall(html) if x.isdigit()]
                     if pages:
                         pages_to_fetch = min(max_pages, max(pages))
 
-                # Need new captcha per page (tokens are single-use typically)
+                # New token per page (single-use / short TTL)
                 if page < pages_to_fetch:
-                    new_tok = self._solve_captcha()
+                    new_tok = self._browser_token()
                     if new_tok:
                         token = new_tok
                 page += 1
@@ -223,26 +224,22 @@ class OpenProxyListSource:
         print(f"openproxylist: listed {len(by_id)} unique ids", flush=True)
         return list(by_id.items())
 
-    def _solve_captcha(self) -> str:
+    def _browser_token(self) -> str:
+        print(
+            "openproxylist: minting reCAPTCHA v3 token via real browser "
+            f"(mode={os.environ.get('OPENPROXYLIST_BROWSER', 'auto')})...",
+            flush=True,
+        )
         try:
-            from .recaptcha_2captcha import captcha_api_key, solve_recaptcha_v3
-        except Exception:
-            return ""
-
-        if not captcha_api_key():
-            return ""
-
-        print("openproxylist: solving reCAPTCHA v3 via 2captcha...", flush=True)
-        try:
-            token = solve_recaptcha_v3(
+            token = get_recaptcha_v3_token(
                 sitekey=RECAPTCHA_SITEKEY,
                 pageurl=LIST_PAGE,
                 action=RECAPTCHA_ACTION,
             )
-            print(f"openproxylist: captcha ok (token len={len(token)})", flush=True)
+            print(f"openproxylist: browser token ok (len={len(token)})", flush=True)
             return token
         except Exception as exc:
-            print(f"openproxylist: 2captcha failed: {exc}", flush=True)
+            print(f"openproxylist: browser token failed: {exc}", flush=True)
             return ""
 
     def _fetch_list_page(self, token: str, *, page: int, country: str) -> str:
@@ -251,13 +248,17 @@ class OpenProxyListSource:
             ("g-recaptcha-response", token),
             ("page", str(page)),
             ("sort", os.environ.get("OPENPROXYLIST_SORT", "sortlast")),
+            ("response", ""),
         ]
         if country:
             fields.append(("country[]", country.lower()))
-        # empty response filter field present on form
-        fields.append(("response", ""))
 
         body = urllib.parse.urlencode(fields).encode("utf-8")
+        referer = (
+            LIST_PAGE
+            if not country
+            else f"{BASE_URL}/openvpn/country/{country.lower()}"
+        )
         return self._http(
             LIST_API,
             data=body,
@@ -265,7 +266,8 @@ class OpenProxyListSource:
                 "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
                 "X-Requested-With": "XMLHttpRequest",
                 "Origin": BASE_URL,
-                "Referer": LIST_PAGE if not country else f"{BASE_URL}/openvpn/country/{country.lower()}",
+                "Referer": referer,
+                "User-Agent": USER_AGENT,
             },
         )
 
