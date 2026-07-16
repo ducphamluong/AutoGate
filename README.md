@@ -200,15 +200,27 @@ PublicVPNList trong stack (`OVPN_SOURCES=...publicvpnlist`) cũng tự fetch khi
 
 Tắt source remote: xóa tên khỏi `OVPN_SOURCES` trong `.env`.
 
-### VPN rotation interval
+### VPN rotation + auto-failover
 
-Set `ROTATING_DELAY` (seconds) on ovpn slave containers via `Dockerfile` / compose `environment`:
+Watchdog on each `ovpn_proxy_*` container:
+
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `ROTATING_DELAY` | `60` | Force random new `.ovpn` on this interval (IP diversity) |
+| `OVPN_HEALTH_INTERVAL` | `8` | Seconds between health probes |
+| `OVPN_HEALTH_FAILS` | `2` | Consecutive fails → switch profile |
+| `OVPN_CONNECT_GRACE` | `35` | Ignore fails this long after (re)connect |
+| `OVPN_EGRESS_CHECK` | `1` | `1` = curl via tinyproxy must work; `0` = only openvpn process + `tun0` |
+| `OVPN_EGRESS_URL` | `http://ifconfig.me/ip` | URL used for egress check |
+
+When unhealthy (process dead, no `tun0`, tinyproxy down, or egress check fails), the worker **blacklists** the current file and picks another from `./ovpn`. Scheduled rotate does **not** blacklist.
 
 ```dockerfile
 ENV ROTATING_DELAY=60
+ENV OVPN_HEALTH_INTERVAL=8
+ENV OVPN_HEALTH_FAILS=2
+ENV OVPN_EGRESS_CHECK=1
 ```
-
-The watchdog kills and reconnects OpenVPN + tinyproxy on this interval.
 
 ### OpenVPN multi-source refresh
 

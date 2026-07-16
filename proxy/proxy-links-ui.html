@@ -91,6 +91,8 @@
           <th>Local list (ovpn-list)</th>
           <th>Remote VPN</th>
           <th>Proto</th>
+          <th>Health</th>
+          <th>Reason</th>
         </tr>
       </thead>
       <tbody id="map-body"></tbody>
@@ -138,12 +140,16 @@
       if (isRotating) {
         metaLine.innerHTML = `<span class="label-sm">OVPN</span> round-robin · không ghim 1 file`;
       } else if (item.file) {
+        const health =
+          item.healthy === true ? "healthy" : item.healthy === false ? "down" : "…";
         metaLine.innerHTML =
           `<span class="label-sm">File</span> <code>${esc(item.file)}</code><br>` +
           (item.local_list_file && item.local_list_file !== item.file
             ? `<span class="label-sm">List</span> <code>${esc(item.local_list_file)}</code><br>` : "") +
           `<span class="label-sm">VPN</span> <code>${esc(item.remote || "—")}</code>` +
-          (item.proto ? ` · ${esc(item.proto)}` : "");
+          (item.proto ? ` · ${esc(item.proto)}` : "") +
+          ` · <span class="label-sm">${esc(health)}</span>` +
+          (item.reason ? ` · ${esc(item.reason)}` : "");
       } else {
         metaLine.innerHTML = `<span class="label-sm">OVPN</span> chưa ghi status (đợi worker connect / rebuild slave)`;
       }
@@ -158,6 +164,8 @@
       mapBody.replaceChildren();
       for (const w of workers) {
         const tr = document.createElement("tr");
+        const health =
+          w.healthy === true ? "UP" : w.healthy === false ? "DOWN" : "—";
         tr.innerHTML = `
           <td class="mono">${esc(w.port)}</td>
           <td class="mono">${esc(w.name)}</td>
@@ -165,7 +173,9 @@
           <td class="mono">${esc(w.file || "—")}</td>
           <td class="mono">${esc(w.local_list_file || "—")}</td>
           <td class="mono">${esc(w.remote || "—")}</td>
-          <td class="mono">${esc(w.proto || "—")}</td>`;
+          <td class="mono">${esc(w.proto || "—")}</td>
+          <td class="mono">${esc(health)}</td>
+          <td class="mono">${esc(w.reason || "—")}</td>`;
         mapBody.appendChild(tr);
       }
     }

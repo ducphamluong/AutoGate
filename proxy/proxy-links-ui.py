@@ -89,6 +89,13 @@ def enrich_worker(index, stats, ovpn_map):
     remote_host = ovpn.get("remote_host") or ""
     remote_port = str(ovpn.get("remote_port") or "")
     remote = f"{remote_host}:{remote_port}" if remote_host else ""
+    healthy = ovpn.get("healthy")
+    if healthy in (1, True, "1", "true", "True"):
+        healthy_flag = True
+    elif healthy in (0, False, "0", "false", "False"):
+        healthy_flag = False
+    else:
+        healthy_flag = None
     return {
         "name": name,
         "label": f"Worker {index:02d}",
@@ -103,6 +110,9 @@ def enrich_worker(index, stats, ovpn_map):
         "remote": remote,
         "proto": ovpn.get("proto") or "",
         "updated_at": int(ovpn.get("updated_at") or 0),
+        "reason": ovpn.get("reason") or "",
+        "healthy": healthy_flag,
+        "blacklist_size": int(ovpn.get("blacklist_size") or 0),
     }
 
 
@@ -168,6 +178,8 @@ class Handler(BaseHTTPRequestHandler):
                             "proto": w.get("proto") or "",
                             "url": w["url"],
                             "updated_at": w.get("updated_at") or 0,
+                            "reason": w.get("reason") or "",
+                            "healthy": w.get("healthy"),
                         }
                         for w in payload["workers"]
                     ],
