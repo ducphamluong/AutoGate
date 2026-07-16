@@ -1,10 +1,11 @@
 #!/bin/bash
 # AutoGate manager - run inside WSL2 Ubuntu-24.04
 # Usage:
-#   autogate.sh [start|restart|stop|status|logs [svc]] [COUNTRIES] [PORTS] [EGRESS_MODE]
+#   autogate.sh [start|restart|stop|status|map|logs [svc]] [COUNTRIES] [PORTS] [EGRESS_MODE]
 # Examples:
 #   autogate.sh start US,JP 10 ovpn
 #   autogate.sh restart KR 5 all
+#   autogate.sh map
 #   autogate.sh stop
 set -u
 
@@ -42,7 +43,7 @@ parse_args() {
       EGRESS_MODE="$arg"
     elif [[ "$arg" =~ ^[0-9]+$ ]]; then
       PROXY_WORKER_COUNT="$arg"
-    elif [[ "$arg" =~ ^(start|stop|restart|status|logs|help|-h|--help)$ ]]; then
+    elif [[ "$arg" =~ ^(start|stop|restart|status|map|logs|help|-h|--help)$ ]]; then
       ACTION="$arg"
     elif is_country_token "$arg"; then
       export COUNTRY_FILTER="$(echo "$arg" | tr '[:lower:]' '[:upper:]')"
@@ -121,6 +122,7 @@ print_runtime_info() {
   echo "=> Proxy list UI  : http://localhost:2087"
   echo "=> Worker count   : $PROXY_WORKER_COUNT"
   echo "=> Worker proxies : $(worker_port_range)"
+  echo "=> OVPN map       : autogate.sh map   |  http://localhost:2087"
   echo "=> Test nhanh     : curl -x http://localhost:56789 http://ifconfig.me/ip"
   echo "                    curl -x http://127.0.0.1:56800 http://ifconfig.me/ip"
   echo "   (worker VPN can ~60s de ket noi, watchdog tu heal)"
@@ -129,16 +131,75 @@ print_runtime_info() {
   echo "   Muon chi OpenVPN: them mode 'ovpn' (vd: autogate.sh US,JP 10 ovpn)"
 }
 
+print_ovpn_map() {
+  local status_dir="$DIR/ovpn/status"
+  local count="${PROXY_WORKER_COUNT:-10}"
+  echo "============================================"
+  echo "  AutoGate OVPN map  (port → file → remote)"
+  echo "============================================"
+  echo "Status dir: $status_dir"
+  echo
+  printf "%-7s %-8s %-24s %s\n" "PORT" "WORKER" "REMOTE" "FILE ./ovpn  [= ovpn-list]"
+  printf "%-7s %-8s %-24s %s\n" "----" "------" "------" "------------------------"
+
+  if [ ! -d "$status_dir" ] || [ -z "$(ls -A "$status_dir"/vpn*.json 2>/dev/null)" ]; then
+    echo
+    echo "[!] Chua co file status. Worker can rebuild + reconnect:"
+    echo "    - rebuild image testimg (slave/ovpn.sh moi)"
+    echo "    - doi ROTATING_DELAY (~60s) hoac: docker compose restart ovpn_proxy_00"
+    echo
+    echo "Fallback: grep log 'OVPN_MAP' / 'Connecting to VPN by'"
+    for i in $(seq 0 $((count - 1))); do
+      name=$(printf "ovpn_proxy_%02d" "$i")
+      port=$((56800 + i))
+      line=$(docker logs "autogate-${name}-1" 2>/dev/null | grep -E 'OVPN_MAP|Connecting to VPN by' | tail -1 || true)
+      if [ -n "$line" ]; then
+        printf "%-7s %-8s %s\n" "$port" "$(printf 'vpn%02d' "$i")" "$line"
+      else
+        printf "%-7s %-8s %s\n" "$port" "$(printf 'vpn%02d' "$i")" "(no log yet)"
+      fi
+    done
+    return 0
+  fi
+
+  python3 - "$status_dir" "$count" <<'PY'
+import json, sys
+from pathlib import Path
+status_dir = Path(sys.argv[1])
+count = int(sys.argv[2])
+for i in range(count):
+    name = f"vpn{i:02d}"
+    port = 56800 + i
+    path = status_dir / f"{name}.json"
+    if not path.is_file():
+        print(f"{port:<7} {name:<8} {'—':<24} (chua ghi status)")
+        continue
+    try:
+        d = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"{port:<7} {name:<8} error={e}")
+        continue
+    remote = f"{d.get('remote_host','')}:{d.get('remote_port','')}" if d.get("remote_host") else "—"
+    f = d.get("file") or "—"
+    ll = d.get("local_list_file") or ""
+    suffix = f"  [= {ll}]" if ll and ll != f else ""
+    print(f"{port:<7} {name:<8} {remote:<24} {f}{suffix}")
+PY
+  echo
+  echo "UI: http://127.0.0.1:2087  |  JSON: http://127.0.0.1:2087/api/ovpn-map"
+}
+
 print_help() {
   cat <<'EOF'
 Cach dung:
-  autogate.sh [start|restart|stop|status|logs [service]] [COUNTRIES] [PORTS] [EGRESS_MODE]
+  autogate.sh [start|restart|stop|status|map|logs [service]] [COUNTRIES] [PORTS] [EGRESS_MODE]
 
 Vi du:
   US,JP 10 ovpn     - multi-country OpenVPN only, 10 worker ports
   US 10             - filter US, mode mac dinh all (warp+proxy+psiphon+ovpn)
   start KR 5 all    - 5 workers, full egress
   restart JP ovpn+psiphon
+  map               - bang port worker → file .ovpn local → remote VPN
   stop | status | logs haproxy
 
 EGRESS_MODE:
@@ -183,6 +244,11 @@ case "$ACTION" in
     ;;
   status)
     compose ps
+    echo
+    print_ovpn_map
+    ;;
+  map)
+    print_ovpn_map
     ;;
   logs)
     compose logs --tail=30 "${EXTRA_ARG:-haproxy}"

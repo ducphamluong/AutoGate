@@ -7,6 +7,7 @@ REM PowerShell: use .\autogate.bat  (not bare autogate.bat)
 for %%A in (%*) do (
   if /I "%%~A"=="stop" set "RUN_KEEPALIVE=0"
   if /I "%%~A"=="status" set "RUN_KEEPALIVE=0"
+  if /I "%%~A"=="map" set "RUN_KEEPALIVE=0"
   if /I "%%~A"=="logs" set "RUN_KEEPALIVE=0"
   if /I "%%~A"=="help" set "RUN_KEEPALIVE=0"
   if /I "%%~A"=="-h" set "RUN_KEEPALIVE=0"
@@ -50,13 +51,15 @@ echo    .\autogate.bat US,JP 10 ovpn
 echo    .\autogate.bat restart KR 5 all
 echo    .\autogate.bat stop
 echo    .\autogate.bat status
+echo    .\autogate.bat map
 echo    .\autogate.bat logs haproxy
 echo.
 echo  EGRESS_MODE: all / ovpn / ovpn+psiphon / ovpn+warp / custom
 echo  Chi OpenVPN: them arg ovpn
+echo  map: port worker -^> file .ovpn local -^> remote VPN
 echo.
 echo  Proxy xoay vong : http://localhost:56789
-echo  Proxy list UI   : http://localhost:2087
+echo  Proxy list UI   : http://localhost:2087  (co bang OVPN map)
 echo  Worker proxies  : http://127.0.0.1:56800 ...
 echo --------------------------------------------
 pause
