@@ -15,7 +15,7 @@ It is intended for **authorized security research, penetration testing, security
 - **Multi-source OpenVPN refresh** — Pulls profiles from VPNGate + IPSpeed (optional OpenProxyList / PublicVPNList)
 - **EGRESS_MODE profiles** — Choose which backends HAProxy rotates (`all`, `ovpn`, `ovpn+psiphon`, `ovpn+warp`, `custom`)
 - **Multi-country locale filter** — `COUNTRY_FILTER=US,JP` filters OpenVPN pool only (ISO2)
-- **Connection rotation** — Watchdog reconnects VPN and proxy per container on a configurable interval (`ROTATING_DELAY`)
+- **Auto-failover** — When a worker VPN is down, watchdog blacklists the profile and switches to another `.ovpn` (scheduled rotate is **off** by default)
 - **Multiple egress paths** — Combine VPN, WARP, and scraped public proxies for diverse IP/geo testing
 - **Stats dashboard** — HAProxy stats UI for backend health monitoring
 - **Copyable proxy list UI** — Mở trang `http://127.0.0.1:2087` để xem/copy proxy xoay vòng và các proxy worker riêng
@@ -66,7 +66,7 @@ It is intended for **authorized security research, penetration testing, security
 | `warp` | Cloudflare WARP SOCKS proxy |
 | `proxy001` | ProxyBroker2 — discovers and serves high-anonymity HTTP/HTTPS proxies |
 | `psiphon001` | Psiphon ConsoleClient — circumvention tunnel exposing a local HTTP proxy (`:8080`) / SOCKS proxy (`:1080`) |
-| `ovpn_proxy_00` … `ovpn_proxy_19` | OpenVPN client + tinyproxy; rotates VPN endpoint on watchdog schedule |
+| `ovpn_proxy_00` … `ovpn_proxy_19` | OpenVPN client + tinyproxy; failover on down (optional scheduled rotate) |
 | `restarter` | Periodically restarts `proxy001` to refresh the proxy pool |
 
 Trang proxy list UI chạy trong container `haproxy` và đọc HAProxy stats nội bộ để hiển thị trạng thái `UP` / `DOWN` / `UNKNOWN` cho các cổng worker.
@@ -137,7 +137,7 @@ curl -x http://127.0.0.1:56800 http://ifconfig.me
 curl -x http://127.0.0.1:56809 http://ifconfig.me
 ```
 
-Mỗi cổng worker giữ nguyên URL nhưng worker phía sau vẫn tự xoay VPN theo `ROTATING_DELAY`.
+Mỗi cổng worker giữ nguyên URL; VPN phía sau chỉ đổi khi **down (failover)** hoặc khi bật `OVPN_ROTATE_ENABLE=1`.
 
 Số lượng worker port có thể chọn khi chạy script:
 
@@ -200,27 +200,30 @@ PublicVPNList trong stack (`OVPN_SOURCES=...publicvpnlist`) cũng tự fetch khi
 
 Tắt source remote: xóa tên khỏi `OVPN_SOURCES` trong `.env`.
 
-### VPN rotation + auto-failover
+### VPN auto-failover (+ optional rotate)
 
 Watchdog on each `ovpn_proxy_*` container:
 
 | Env | Default | Meaning |
 |-----|---------|---------|
-| `ROTATING_DELAY` | `60` | Force random new `.ovpn` on this interval (IP diversity) |
+| `OVPN_ROTATE_ENABLE` | **`0`** | `0` = **không** rotate theo giờ (up thì giữ file). `1` = bật xoay lịch |
+| `ROTATING_DELAY` | `300` | Chỉ dùng khi `OVPN_ROTATE_ENABLE=1` — giây giữa các lần đổi file |
 | `OVPN_HEALTH_INTERVAL` | `8` | Seconds between health probes |
 | `OVPN_HEALTH_FAILS` | `2` | Consecutive fails → switch profile |
 | `OVPN_CONNECT_GRACE` | `35` | Ignore fails this long after (re)connect |
 | `OVPN_EGRESS_CHECK` | `1` | `1` = curl via tinyproxy must work; `0` = only openvpn process + `tun0` |
 | `OVPN_EGRESS_URL` | `http://ifconfig.me/ip` | URL used for egress check |
 
-When unhealthy (process dead, no `tun0`, tinyproxy down, or egress check fails), the worker **blacklists** the current file and picks another from `./ovpn`. Scheduled rotate does **not** blacklist.
+**Mặc định:** VPN còn `healthy` → **kệ, không đổi file**. Chỉ khi down (process / tun0 / tinyproxy / egress) mới **failover** + blacklist file hỏng.
+
+Bật rotate định kỳ (IP diversity):
 
 ```dockerfile
-ENV ROTATING_DELAY=60
-ENV OVPN_HEALTH_INTERVAL=8
-ENV OVPN_HEALTH_FAILS=2
-ENV OVPN_EGRESS_CHECK=1
+ENV OVPN_ROTATE_ENABLE=1
+ENV ROTATING_DELAY=300
 ```
+
+Hoặc trong `docker-compose.yml` `environment` của `ovpn_proxy_*` / build args image.
 
 ### OpenVPN multi-source refresh
 

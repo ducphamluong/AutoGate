@@ -9,8 +9,10 @@ COPY slave /slave
 RUN find /slave -type f -exec sed -i 's/\r$//' {} + \
     && find /slave -name "*.sh" -exec chmod +x {} +
 
-# Force new random OVPN profile on this interval (seconds)
-ENV ROTATING_DELAY=60
+# Scheduled IP rotate: OFF by default — keep profile while healthy; only failover on down.
+# Set OVPN_ROTATE_ENABLE=1 to force a new random .ovpn every ROTATING_DELAY seconds.
+ENV OVPN_ROTATE_ENABLE=0
+ENV ROTATING_DELAY=300
 # Health probe interval / consecutive fails before auto-switch
 ENV OVPN_HEALTH_INTERVAL=8
 ENV OVPN_HEALTH_FAILS=2

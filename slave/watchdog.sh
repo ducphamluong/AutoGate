@@ -1,27 +1,34 @@
 #!/bin/sh
 # Watchdog:
-#  1) Scheduled rotate every ROTATING_DELAY (IP diversity)
-#  2) Health probe every OVPN_HEALTH_INTERVAL — auto-switch OVPN when down
+#  1) Health probe — auto-switch OVPN when down (always on)
+#  2) Optional scheduled rotate — ONLY if OVPN_ROTATE_ENABLE=1
 #
 # Env:
-#   ROTATING_DELAY       default 60   — force new random profile
-#   OVPN_HEALTH_INTERVAL default 8    — seconds between probes
-#   OVPN_HEALTH_FAILS    default 2    — consecutive fails before failover
-#   OVPN_CONNECT_GRACE   default 35   — seconds after (re)start before counting fails
-#   OVPN_EGRESS_CHECK    default 1    — curl via tinyproxy to prove path works
-#   OVPN_EGRESS_URL      default http://1.1.1.1
+#   OVPN_ROTATE_ENABLE   default 0    — 1/true/on = bật xoay lịch; 0 = giữ file khi còn up
+#   ROTATING_DELAY       default 300  — giây giữa các lần rotate (chỉ khi enable)
+#   OVPN_HEALTH_INTERVAL default 8
+#   OVPN_HEALTH_FAILS    default 2
+#   OVPN_CONNECT_GRACE   default 35
+#   OVPN_EGRESS_CHECK    default 1
+#   OVPN_EGRESS_URL      default http://ifconfig.me/ip
 #   OVPN_EGRESS_TIMEOUT  default 6
 
 # shellcheck source=/dev/null
 . /slave/ovpn-common.sh
 
-ROTATING_DELAY="${ROTATING_DELAY:-60}"
+ROTATE_ENABLE_RAW=$(echo "${OVPN_ROTATE_ENABLE:-0}" | tr '[:upper:]' '[:lower:]')
+case "$ROTATE_ENABLE_RAW" in
+	1|true|yes|on) ROTATE_ENABLE=1 ;;
+	*) ROTATE_ENABLE=0 ;;
+esac
+
+ROTATING_DELAY="${ROTATING_DELAY:-300}"
 HEALTH_INTERVAL="${OVPN_HEALTH_INTERVAL:-8}"
 FAIL_THRESHOLD="${OVPN_HEALTH_FAILS:-2}"
 CONNECT_GRACE="${OVPN_CONNECT_GRACE:-35}"
 
 # sanitize ints
-case "$ROTATING_DELAY" in *[!0-9]*|"") ROTATING_DELAY=60 ;; esac
+case "$ROTATING_DELAY" in *[!0-9]*|"") ROTATING_DELAY=300 ;; esac
 case "$HEALTH_INTERVAL" in *[!0-9]*|"") HEALTH_INTERVAL=8 ;; esac
 case "$FAIL_THRESHOLD" in *[!0-9]*|"") FAIL_THRESHOLD=2 ;; esac
 case "$CONNECT_GRACE" in *[!0-9]*|"") CONNECT_GRACE=35 ;; esac
@@ -29,7 +36,11 @@ case "$CONNECT_GRACE" in *[!0-9]*|"") CONNECT_GRACE=35 ;; esac
 [ "$FAIL_THRESHOLD" -lt 1 ] && FAIL_THRESHOLD=1
 [ "$ROTATING_DELAY" -lt 15 ] && ROTATING_DELAY=15
 
-echo "Watchdog running: ROTATING_DELAY=${ROTATING_DELAY}s HEALTH_INTERVAL=${HEALTH_INTERVAL}s FAIL_THRESHOLD=${FAIL_THRESHOLD} GRACE=${CONNECT_GRACE}s EGRESS_CHECK=${OVPN_EGRESS_CHECK:-1}"
+if [ "$ROTATE_ENABLE" = "1" ]; then
+	echo "Watchdog running: ROTATE=on delay=${ROTATING_DELAY}s HEALTH_INTERVAL=${HEALTH_INTERVAL}s FAIL_THRESHOLD=${FAIL_THRESHOLD} GRACE=${CONNECT_GRACE}s EGRESS_CHECK=${OVPN_EGRESS_CHECK:-1}"
+else
+	echo "Watchdog running: ROTATE=off (giu file khi up; chi failover khi down) HEALTH_INTERVAL=${HEALTH_INTERVAL}s FAIL_THRESHOLD=${FAIL_THRESHOLD} GRACE=${CONNECT_GRACE}s EGRESS_CHECK=${OVPN_EGRESS_CHECK:-1}"
+fi
 
 fail_streak=0
 last_start_ts=$(date +%s 2>/dev/null || echo 0)
@@ -51,7 +62,6 @@ do_failover() {
 
 	kill_vpn_stack
 
-	# Prefer a different file than the one that just failed
 	if ! start_vpn_stack "$_reason"; then
 		echo "OVPN_FAILOVER could not start new stack — will retry"
 		sleep 5
@@ -70,13 +80,11 @@ while :; do
 	elapsed_start=$((now - last_start_ts))
 	elapsed_rotate=$((now - last_rotate_ts))
 
-	# --- scheduled rotation (diversity), independent of health ---
-	if [ "$elapsed_rotate" -ge "$ROTATING_DELAY" ]; then
-		echo "Watchdog: scheduled rotate after ${elapsed_rotate}s (ROTATING_DELAY=$ROTATING_DELAY)"
-		# do not blacklist on healthy rotate — just move on
+	# --- optional scheduled rotation (only when explicitly enabled) ---
+	if [ "$ROTATE_ENABLE" = "1" ] && [ "$elapsed_rotate" -ge "$ROTATING_DELAY" ]; then
+		echo "Watchdog: scheduled rotate after ${elapsed_rotate}s (OVPN_ROTATE_ENABLE=1 ROTATING_DELAY=$ROTATING_DELAY)"
 		_cur=$(get_current_ovpn)
 		kill_vpn_stack
-		# avoid same file if possible (pass avoid via CURRENT still set)
 		if [ -n "$_cur" ]; then
 			printf '%s\n' "$_cur" > "$CURRENT_FILE_PATH" 2>/dev/null || true
 		fi
@@ -88,9 +96,8 @@ while :; do
 		continue
 	fi
 
-	# --- health / auto failover ---
+	# --- health / auto failover (always on) ---
 	if [ "$elapsed_start" -lt "$CONNECT_GRACE" ]; then
-		# still connecting — update status only when process+tun look good
 		if vpn_is_healthy; then
 			OVPN_FILE=$(get_current_ovpn)
 			write_ovpn_status "up" 1
