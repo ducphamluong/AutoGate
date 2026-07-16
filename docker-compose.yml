@@ -9,8 +9,7 @@ services:
         image: haproxyimg
         container_name: haproxy
         env_file:
-            - path: .env
-              required: false
+            - .env
         environment:
             COUNTRY_FILTER: ${COUNTRY_FILTER:-}
             PROXY_WORKER_COUNT: ${PROXY_WORKER_COUNT:-10}

@@ -104,28 +104,43 @@ class PublicVpnListSource:
             )
             return []
 
-        # Cap per country, prefer recommended/fresh/speed
-        selected = self._select_candidates(candidates, max_per_country)
+        # Cap per country + global max; prefer recommended/fresh/speed
+        global_max = self._global_max()
+        selected = self._select_candidates(candidates, max_per_country)[:global_max]
         configs: list[OvpnConfig] = []
+        delay = self._request_delay()
+        consecutive_429 = 0
 
         for row in selected:
             if time.monotonic() > deadline:
+                break
+            if len(configs) >= global_max:
                 break
             server_id = str(row.get("id") or "").strip()
             if not server_id:
                 continue
 
             if do_live:
-                live = self._live_test(server_id)
-                # Still download on fail (browser allowUnconfirmed path)
-                if live is False:
-                    # hard API error — still try token
-                    pass
+                self._live_test(server_id)
 
             try:
                 body = self._download_ovpn(server_id)
+                consecutive_429 = 0
             except Exception as exc:
+                msg = str(exc)
                 print(f"publicvpnlist download fail id={server_id}: {exc}", flush=True)
+                if "429" in msg:
+                    consecutive_429 += 1
+                    # Back off: 2s, 4s, 8s... then stop to avoid hammering
+                    sleep_s = min(30, 2 ** min(consecutive_429, 4))
+                    print(f"publicvpnlist: rate-limited, sleep {sleep_s}s", flush=True)
+                    time.sleep(sleep_s)
+                    if consecutive_429 >= 5:
+                        print(
+                            "publicvpnlist: too many 429s, stop this source early",
+                            flush=True,
+                        )
+                        break
                 continue
             if not body or "remote " not in body.lower() or body.lstrip().startswith("<"):
                 continue
@@ -150,11 +165,13 @@ class PublicVpnListSource:
             )
             cfg.detect_auth()
             configs.append(cfg)
+            if delay > 0:
+                time.sleep(delay)
 
         if not configs:
             print(
                 "publicvpnlist: candidates found but no .ovpn downloaded "
-                "(token/download failed)",
+                "(token/download failed or rate-limited)",
                 flush=True,
             )
         return configs
@@ -163,7 +180,20 @@ class PublicVpnListSource:
         raw = os.environ.get("PUBLICVPNLIST_MAX_PER_COUNTRY", "").strip()
         if raw.isdigit() and int(raw) > 0:
             return int(raw)
-        return 10
+        return 3
+
+    def _global_max(self) -> int:
+        raw = os.environ.get("PUBLICVPNLIST_MAX", "").strip()
+        if raw.isdigit() and int(raw) > 0:
+            return int(raw)
+        return 20
+
+    def _request_delay(self) -> float:
+        raw = os.environ.get("PUBLICVPNLIST_REQUEST_DELAY", "0.8").strip()
+        try:
+            return max(0.0, float(raw))
+        except ValueError:
+            return 0.8
 
     def _budget(self) -> int:
         raw = os.environ.get("PUBLICVPNLIST_BUDGET_SECONDS", "").strip()
