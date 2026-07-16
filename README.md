@@ -185,7 +185,7 @@ The watchdog kills and reconnects OpenVPN + tinyproxy on this interval.
 |--------------------|--------|-------|
 | `vpngate` | default | CSV API, reliable backbone |
 | `ipspeed` | default | HTML + direct `.ovpn` URLs |
-| `openproxylist` | optional | Download-by-id works; **list needs reCAPTCHA** — set `OPENPROXYLIST_IDS` or skip |
+| `openproxylist` | optional | Download-by-id free; **list** needs reCAPTCHA v3 (`TWOCAPTCHA_API_KEY` or token/IDs) |
 | `publicvpnlist` | optional | Catalog `vpn-data.php` + short-lived `get_token.php` (300s); cap per country |
 
 Other knobs: `MAX_OVPN_CONFIGS` (default 80), `OVPN_DEFAULT_USER` / `OVPN_DEFAULT_PASS` (default `vpn`/`vpn`) for SoftEther-style `auth-user-pass`.
